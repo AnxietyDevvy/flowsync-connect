@@ -18,6 +18,7 @@ import { Plus, Send, Eye, Trash2, CheckCircle2 } from "lucide-react";
 import { SectionHeader } from "@/components/flowsync/SectionHeader";
 import { FlowSyncLogo } from "@/components/flowsync/Logos";
 import { OrderForm } from "@/components/flowsync/OrderForm";
+import { ProductsManager } from "@/components/flowsync/ProductsManager";
 import {
   OFFICE_PASSWORD,
   OFFICE_UNLOCK_KEY,
@@ -138,6 +139,7 @@ function OfficeApp({ onLock }: { onLock: () => void }) {
         <Tabs defaultValue="orders">
           <TabsList>
             <TabsTrigger value="orders">Package orders</TabsTrigger>
+            <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="supplies" className="gap-2">
               Supplies
               {newSupplies > 0 && (
@@ -189,6 +191,16 @@ function OfficeApp({ onLock }: { onLock: () => void }) {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="products" className="mt-6">
+            <div className="mb-4">
+              <h2 className="text-2xl font-bold">Product catalog</h2>
+              <p className="text-sm text-muted-foreground">
+                Manage the list of products available when creating orders.
+              </p>
+            </div>
+            <ProductsManager />
           </TabsContent>
 
           <TabsContent value="supplies" className="mt-6">
