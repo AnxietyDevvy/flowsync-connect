@@ -31,35 +31,11 @@ export function OrderForm({
   const add = () =>
     setProducts((p) => [...p, { id: uid(), name: "", quantity: "" }]);
 
-  const submit = (send: boolean) => {
-    const cleaned = products.filter((p) => p.name.trim());
-    if (!orderNumber.trim() || cleaned.length === 0) return;
-    store.addOrder({ orderNumber, date, notes, products: cleaned });
-    if (send) {
-      // send the just-created one — it's first in list
-      const latest = 0;
-      setTimeout(() => {
-        const id = (window as any).__lastOrderId;
-        if (id) store.sendOrder(id);
-      }, 0);
-      // Simpler: mark all recent drafts with this number
-      setTimeout(() => {
-        // find by orderNumber
-        // handled inline below
-      }, 0);
-    }
-    onDone();
-  };
-
-  // Simpler submit: create then optionally send by orderNumber match
   const handleCreate = (send: boolean) => {
     const cleaned = products.filter((p) => p.name.trim());
     if (!orderNumber.trim() || cleaned.length === 0) return;
     store.addOrder({ orderNumber, date, notes, products: cleaned });
     if (send) {
-      // The newest matching order
-      const { useFlowSync } = { useFlowSync: null } as any;
-      // Read from localStorage directly
       try {
         const raw = JSON.parse(localStorage.getItem("flowsync-state-v1") || "{}");
         const match = (raw.orders || []).find((o: Order) => o.orderNumber === orderNumber);
@@ -68,8 +44,6 @@ export function OrderForm({
     }
     onDone();
   };
-
-  void submit;
 
   return (
     <div className="space-y-5">
