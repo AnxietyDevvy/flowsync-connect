@@ -25,18 +25,80 @@ export type Supply = {
   updatedAt: number;
 };
 
-type State = { orders: Order[]; supplies: Supply[] };
+export type CatalogProduct = {
+  id: string;
+  name: string;
+  category: string;
+  isCustom: boolean;
+};
+
+type State = {
+  orders: Order[];
+  supplies: Supply[];
+  products: CatalogProduct[];
+};
 
 const KEY = "flowsync-state-v1";
 const listeners = new Set<() => void>();
 
+const SEED_PRODUCTS: Array<{ name: string; category: string }> = [
+  { name: "ICW1 Level III +++ ULTRA LIGHT", category: "ICW / SA Plates" },
+  { name: "ICW2 Level III ++ SUPA LIGHT", category: "ICW / SA Plates" },
+  { name: "ICW3 Level III S A Mix", category: "ICW / SA Plates" },
+  { name: "ICW4 Level III S A Mix Ladies Front", category: "ICW / SA Plates" },
+  { name: "ICW5 Level IV", category: "ICW / SA Plates" },
+  { name: "ICW6 Level IV", category: "ICW / SA Plates" },
+  { name: "SA1 Level III ++ ULTRA LIGHT- SA", category: "ICW / SA Plates" },
+  { name: "SA2 Level III +++ SUPA LIGHT- SA", category: "ICW / SA Plates" },
+  { name: "SA3 Level III +++ ULTRA STEEL- SA", category: "ICW / SA Plates" },
+  { name: "SA4 Level III S A Mix- SA", category: "ICW / SA Plates" },
+  { name: "SA5 Level IV- SA", category: "ICW / SA Plates" },
+  { name: "SA6 Level III ++ ULTRA LIGHT- SA (side plate)", category: "ICW / SA Plates" },
+  { name: "SA7 Level III +++ ULTRA LIGHT- SA (side plate)", category: "ICW / SA Plates" },
+  { name: "SA8 Level IV- SA (side plate)", category: "ICW / SA Plates" },
+  { name: "SA9 Level III +++ ULTRA STEEL- SA (Large)", category: "ICW / SA Plates" },
+  { name: "ARAMID B4 (ARAB4)", category: "Vehicle Armor" },
+  { name: "UHMWPE Level B4 (UHMWPE5)", category: "Vehicle Armor" },
+  { name: "UHMWPE Level B6 (UHMWPE15)", category: "Vehicle Armor" },
+  { name: "UHMWPE Level B6 (UHMWPE18)", category: "Vehicle Armor" },
+  { name: "Vikashield Glass Reinforced Matrix", category: "Vehicle Armor" },
+  { name: "STANAG Level 2", category: "Military Vehicle Armor" },
+  { name: "STANAG Level 3(-)", category: "Military Vehicle Armor" },
+  { name: "STANAG Level 3 Full", category: "Military Vehicle Armor" },
+  { name: "STANAG Level 4", category: "Military Vehicle Armor" },
+  { name: "Vikashield", category: "Military Vehicle Armor" },
+  { name: "Aramid", category: "Military Vehicle Armor" },
+  { name: "UHMWPE", category: "Military Vehicle Armor" },
+  { name: "Level IIIA Shield", category: "Ballistic Shield" },
+];
+
+function seededProducts(): CatalogProduct[] {
+  return SEED_PRODUCTS.map((p, i) => ({
+    id: `seed-${i}`,
+    name: p.name,
+    category: p.category,
+    isCustom: false,
+  }));
+}
+
 function load(): State {
-  if (typeof window === "undefined") return { orders: [], supplies: [] };
+  const empty: State = { orders: [], supplies: [], products: seededProducts() };
+  if (typeof window === "undefined") return empty;
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<State>;
+      return {
+        orders: parsed.orders ?? [],
+        supplies: parsed.supplies ?? [],
+        products:
+          parsed.products && parsed.products.length > 0
+            ? parsed.products
+            : seededProducts(),
+      };
+    }
   } catch {}
-  return { orders: [], supplies: [] };
+  return empty;
 }
 
 let state: State = load();
@@ -66,7 +128,7 @@ export function useFlowSync() {
   return useSyncExternalStore(
     subscribe,
     () => state,
-    () => ({ orders: [], supplies: [] }),
+    () => ({ orders: [], supplies: [], products: seededProducts() }),
   );
 }
 
@@ -127,6 +189,26 @@ export const store = {
   },
   noticeSupply(id: string) {
     this.updateSupply(id, { noticedByOffice: true });
+  },
+  addProduct(name: string, category: string) {
+    const trimmed = name.trim();
+    const cat = category.trim() || "Uncategorized";
+    if (!trimmed) return;
+    state = {
+      ...state,
+      products: [
+        ...state.products,
+        { id: uid(), name: trimmed, category: cat, isCustom: true },
+      ],
+    };
+    persist();
+  },
+  deleteProduct(id: string) {
+    state = {
+      ...state,
+      products: state.products.filter((p) => !(p.id === id && p.isCustom)),
+    };
+    persist();
   },
 };
 

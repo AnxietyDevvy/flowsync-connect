@@ -1,10 +1,16 @@
-import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Plus, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { store, nextOrderNumber, type Order, type Product } from "@/lib/flowsync-store";
+import {
+  store,
+  nextOrderNumber,
+  useFlowSync,
+  type Order,
+  type Product,
+} from "@/lib/flowsync-store";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -17,22 +23,38 @@ export function OrderForm({
   orders: Order[];
   onDone: () => void;
 }) {
+  const { products: catalog } = useFlowSync();
   const [orderNumber, setOrderNumber] = useState(() => nextOrderNumber(orders));
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
-  const [products, setProducts] = useState<Product[]>([
-    { id: uid(), name: "", quantity: "" },
-  ]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [query, setQuery] = useState("");
 
-  const update = (id: string, patch: Partial<Product>) =>
-    setProducts((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const grouped = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? catalog.filter((p) => p.name.toLowerCase().includes(q))
+      : catalog;
+    const map = new Map<string, typeof catalog>();
+    for (const p of filtered) {
+      const list = map.get(p.category) ?? [];
+      list.push(p);
+      map.set(p.category, list);
+    }
+    return Array.from(map.entries());
+  }, [catalog, query]);
+
+  const setQty = (id: string, quantity: string) =>
+    setProducts((p) => p.map((x) => (x.id === id ? { ...x, quantity } : x)));
   const remove = (id: string) =>
-    setProducts((p) => (p.length > 1 ? p.filter((x) => x.id !== id) : p));
-  const add = () =>
-    setProducts((p) => [...p, { id: uid(), name: "", quantity: "" }]);
+    setProducts((p) => p.filter((x) => x.id !== id));
+  const addFromCatalog = (name: string) => {
+    if (products.some((p) => p.name === name)) return;
+    setProducts((p) => [...p, { id: uid(), name, quantity: "1" }]);
+  };
 
   const handleCreate = (send: boolean) => {
-    const cleaned = products.filter((p) => p.name.trim());
+    const cleaned = products.filter((p) => p.name.trim() && p.quantity.trim());
     if (!orderNumber.trim() || cleaned.length === 0) return;
     store.addOrder({ orderNumber, date, notes, products: cleaned });
     if (send) {
@@ -67,42 +89,95 @@ export function OrderForm({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label>Products</Label>
-          <Button type="button" variant="outline" size="sm" onClick={add}>
-            <Plus className="mr-1 h-4 w-4" /> Add product
-          </Button>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          {products.map((p, i) => (
-            <div key={p.id} className="flex gap-2">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
-                {i + 1}
+          <Label>Product catalog</Label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search products..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <div className="h-72 overflow-y-auto rounded-md border border-border">
+            {grouped.length === 0 ? (
+              <div className="p-4 text-center text-xs text-muted-foreground">
+                No products match "{query}"
               </div>
-              <Input
-                placeholder="Product name"
-                value={p.name}
-                onChange={(e) => update(p.id, { name: e.target.value })}
-                className="flex-1"
-              />
-              <Input
-                placeholder="Qty"
-                value={p.quantity}
-                onChange={(e) => update(p.id, { quantity: e.target.value })}
-                className="w-24"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => remove(p.id)}
-                disabled={products.length === 1}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
+            ) : (
+              grouped.map(([category, items]) => (
+                <div key={category}>
+                  <div className="sticky top-0 border-b border-border bg-muted px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {category}
+                  </div>
+                  {items.map((p) => {
+                    const added = products.some((x) => x.name === p.name);
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => addFromCatalog(p.name)}
+                        disabled={added}
+                        className="flex w-full items-center justify-between border-b border-border px-3 py-2 text-left text-sm last:border-b-0 hover:bg-muted disabled:opacity-50"
+                      >
+                        <span className="truncate pr-2">{p.name}</span>
+                        {added ? (
+                          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Added
+                          </span>
+                        ) : (
+                          <Plus className="h-4 w-4 shrink-0 text-primary" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>
+            Selected products{" "}
+            <span className="text-muted-foreground">({products.length})</span>
+          </Label>
+          <div className="h-72 overflow-y-auto rounded-md border border-border">
+            {products.length === 0 ? (
+              <div className="flex h-full items-center justify-center p-4 text-center text-xs text-muted-foreground">
+                Pick products from the catalog to add them to this order.
+              </div>
+            ) : (
+              products.map((p, i) => (
+                <div
+                  key={p.id}
+                  className="flex items-center gap-2 border-b border-border px-2 py-2 last:border-b-0"
+                >
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-muted text-xs font-semibold text-muted-foreground">
+                    {i + 1}
+                  </div>
+                  <div className="min-w-0 flex-1 text-sm">{p.name}</div>
+                  <Input
+                    aria-label="Quantity"
+                    value={p.quantity}
+                    onChange={(e) => setQty(p.id, e.target.value)}
+                    className="h-8 w-16 text-center"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => remove(p.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
