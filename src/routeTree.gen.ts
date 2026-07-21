@@ -9,38 +9,81 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ProductionRouteImport } from './routes/production'
+import { Route as OfficeRouteImport } from './routes/office'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProductionPrintIdRouteImport } from './routes/production.print.$id'
 
+const ProductionRoute = ProductionRouteImport.update({
+  id: '/production',
+  path: '/production',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OfficeRoute = OfficeRouteImport.update({
+  id: '/office',
+  path: '/office',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProductionPrintIdRoute = ProductionPrintIdRouteImport.update({
+  id: '/print/$id',
+  path: '/print/$id',
+  getParentRoute: () => ProductionRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/office': typeof OfficeRoute
+  '/production': typeof ProductionRouteWithChildren
+  '/production/print/$id': typeof ProductionPrintIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/office': typeof OfficeRoute
+  '/production': typeof ProductionRouteWithChildren
+  '/production/print/$id': typeof ProductionPrintIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/office': typeof OfficeRoute
+  '/production': typeof ProductionRouteWithChildren
+  '/production/print/$id': typeof ProductionPrintIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/office' | '/production' | '/production/print/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/office' | '/production' | '/production/print/$id'
+  id: '__root__' | '/' | '/office' | '/production' | '/production/print/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  OfficeRoute: typeof OfficeRoute
+  ProductionRoute: typeof ProductionRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/production': {
+      id: '/production'
+      path: '/production'
+      fullPath: '/production'
+      preLoaderRoute: typeof ProductionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/office': {
+      id: '/office'
+      path: '/office'
+      fullPath: '/office'
+      preLoaderRoute: typeof OfficeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +91,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/production/print/$id': {
+      id: '/production/print/$id'
+      path: '/print/$id'
+      fullPath: '/production/print/$id'
+      preLoaderRoute: typeof ProductionPrintIdRouteImport
+      parentRoute: typeof ProductionRoute
+    }
   }
 }
 
+interface ProductionRouteChildren {
+  ProductionPrintIdRoute: typeof ProductionPrintIdRoute
+}
+
+const ProductionRouteChildren: ProductionRouteChildren = {
+  ProductionPrintIdRoute: ProductionPrintIdRoute,
+}
+
+const ProductionRouteWithChildren = ProductionRoute._addFileChildren(
+  ProductionRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  OfficeRoute: OfficeRoute,
+  ProductionRoute: ProductionRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
