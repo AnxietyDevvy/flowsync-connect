@@ -85,6 +85,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "FlowSync — BPT Internal Workflow" },
+      { name: "twitter:description", content: "Internal workflow app for BPT Office and Production teams." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44a9eb53-ad89-4b9d-aeb7-a31199adb3b9/id-preview-933cc674--6984c9c0-16ad-49ad-b24f-c1bee8c137a4.lovable.app-1784617584048.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44a9eb53-ad89-4b9d-aeb7-a31199adb3b9/id-preview-933cc674--6984c9c0-16ad-49ad-b24f-c1bee8c137a4.lovable.app-1784617584048.png" },
     ],
     links: [
       {
