@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Printer, ArrowLeft } from "lucide-react";
 import { BptLogo, FlowSyncLogo } from "@/components/flowsync/Logos";
@@ -143,6 +143,3 @@ function PrintPage() {
     </div>
   );
 }
-
-// Silence unused-import
-void notFound;
