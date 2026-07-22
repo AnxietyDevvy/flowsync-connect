@@ -91,7 +91,7 @@ export function PrintSheet({ order }: { order: Order }) {
         @media print {
           @page { margin: 1.5cm; }
           html, body { background: white !important; margin: 0 !important; }
-          body > *:not(#flowsync-print-portal-wrapper) { display: none !important; }
+          body > *:not(#flowsync-print-portal) { display: none !important; }
           #flowsync-print-portal { display: block !important; }
         }
       `}</style>
