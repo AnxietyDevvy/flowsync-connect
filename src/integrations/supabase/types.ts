@@ -14,7 +14,108 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      orders: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          id: string
+          notes: string
+          order_date: string
+          order_number: string
+          products: Json
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string
+          order_date?: string
+          order_number: string
+          products?: Json
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string
+          order_date?: string
+          order_number?: string
+          products?: Json
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          is_custom: boolean
+          name: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_custom?: boolean
+          name: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_custom?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
+      supplies: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          notes: string
+          noticed_by: string
+          noticed_by_office: boolean
+          reorder: string
+          status: string
+          stock: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string
+          noticed_by?: string
+          noticed_by_office?: boolean
+          reorder?: string
+          status?: string
+          stock?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string
+          noticed_by?: string
+          noticed_by_office?: boolean
+          reorder?: string
+          status?: string
+          stock?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
