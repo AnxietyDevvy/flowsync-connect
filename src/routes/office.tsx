@@ -22,6 +22,8 @@ import { ProductsManager } from "@/components/flowsync/ProductsManager";
 import {
   OFFICE_PASSWORD,
   OFFICE_UNLOCK_KEY,
+  getSavedOfficeName,
+  setSavedOfficeName,
   store,
   useFlowSync,
   type Order,
@@ -32,42 +34,66 @@ export const Route = createFileRoute("/office")({
 });
 
 function OfficePage() {
-  const [unlocked, setUnlocked] = useState<boolean | null>(null);
+  const [state, setStateVal] = useState<{ unlocked: boolean; name: string } | null>(null);
 
   useEffect(() => {
-    setUnlocked(
-      typeof window !== "undefined" &&
+    setStateVal({
+      unlocked:
+        typeof window !== "undefined" &&
         sessionStorage.getItem(OFFICE_UNLOCK_KEY) === "1",
-    );
+      name: getSavedOfficeName(),
+    });
   }, []);
 
-  if (unlocked === null) return null;
-  if (!unlocked) return <OfficeGate onUnlock={() => setUnlocked(true)} />;
+  if (state === null) return null;
+  if (!state.unlocked || !state.name) {
+    return (
+      <OfficeGate
+        initialName={state.name}
+        onUnlock={(name) => setStateVal({ unlocked: true, name })}
+      />
+    );
+  }
   return (
     <OfficeApp
+      userName={state.name}
       onLock={() => {
         sessionStorage.removeItem(OFFICE_UNLOCK_KEY);
-        setUnlocked(false);
+        setSavedOfficeName("");
+        setStateVal({ unlocked: false, name: "" });
       }}
     />
   );
 }
 
-function OfficeGate({ onUnlock }: { onUnlock: () => void }) {
+function OfficeGate({
+  initialName,
+  onUnlock,
+}: {
+  initialName: string;
+  onUnlock: (name: string) => void;
+}) {
+  const [name, setName] = useState(initialName);
   const [pw, setPw] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [redirect, setRedirect] = useState(false);
 
   if (redirect) return <Navigate to="/" />;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pw === OFFICE_PASSWORD) {
-      sessionStorage.setItem(OFFICE_UNLOCK_KEY, "1");
-      onUnlock();
-    } else {
-      setError(true);
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError("Enter your name");
+      return;
     }
+    if (pw !== OFFICE_PASSWORD) {
+      setError("Incorrect password");
+      return;
+    }
+    sessionStorage.setItem(OFFICE_UNLOCK_KEY, "1");
+    setSavedOfficeName(trimmed);
+    onUnlock(trimmed);
   };
 
   return (
@@ -89,20 +115,33 @@ function OfficeGate({ onUnlock }: { onUnlock: () => void }) {
             </div>
             <form onSubmit={submit} className="space-y-4">
               <div className="space-y-1.5">
+                <Label htmlFor="uname">Your name</Label>
+                <Input
+                  id="uname"
+                  value={name}
+                  autoFocus={!initialName}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder="e.g. Sarah"
+                />
+              </div>
+              <div className="space-y-1.5">
                 <Label htmlFor="pw">Password</Label>
                 <Input
                   id="pw"
                   type="password"
                   value={pw}
-                  autoFocus
+                  autoFocus={!!initialName}
                   onChange={(e) => {
                     setPw(e.target.value);
-                    setError(false);
+                    setError(null);
                   }}
                 />
                 {error && (
                   <p className="text-xs font-medium text-primary">
-                    Incorrect password
+                    {error}
                   </p>
                 )}
               </div>
@@ -124,7 +163,7 @@ function OfficeGate({ onUnlock }: { onUnlock: () => void }) {
   );
 }
 
-function OfficeApp({ onLock }: { onLock: () => void }) {
+function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void }) {
   const { orders, supplies } = useFlowSync();
   const [creating, setCreating] = useState(false);
   const [viewing, setViewing] = useState<Order | null>(null);
@@ -133,7 +172,7 @@ function OfficeApp({ onLock }: { onLock: () => void }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <SectionHeader label="Office" onLock={onLock} />
+      <SectionHeader label="Office" userName={userName} onLock={onLock} />
 
       <main className="mx-auto max-w-7xl px-6 py-8">
         <Tabs defaultValue="orders">
@@ -168,7 +207,11 @@ function OfficeApp({ onLock }: { onLock: () => void }) {
                   <DialogHeader>
                     <DialogTitle>New package order</DialogTitle>
                   </DialogHeader>
-                  <OrderForm orders={orders} onDone={() => setCreating(false)} />
+                  <OrderForm
+                    orders={orders}
+                    createdBy={userName}
+                    onDone={() => setCreating(false)}
+                  />
                 </DialogContent>
               </Dialog>
             </div>
@@ -238,7 +281,7 @@ function OfficeApp({ onLock }: { onLock: () => void }) {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => store.noticeSupply(s.id)}
+                          onClick={() => store.noticeSupply(s.id, userName)}
                         >
                           <CheckCircle2 className="mr-1 h-4 w-4" /> Mark noticed
                         </Button>
@@ -283,6 +326,7 @@ function OrderCard({
           <div className="mt-1 text-xs text-muted-foreground">
             {order.date} · {order.products.length} product
             {order.products.length !== 1 ? "s" : ""}
+            {order.createdBy && ` · by ${order.createdBy}`}
           </div>
         </div>
         <div className="flex gap-2">

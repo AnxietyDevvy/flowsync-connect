@@ -243,6 +243,7 @@ function ProdOrderCard({
           <div className="mt-1 text-xs text-muted-foreground">
             {order.date} · {order.products.length} product
             {order.products.length !== 1 ? "s" : ""}
+            {order.createdBy && ` · from ${order.createdBy}`}
             {order.notes && ` · ${order.notes.slice(0, 60)}${order.notes.length > 60 ? "…" : ""}`}
           </div>
         </div>

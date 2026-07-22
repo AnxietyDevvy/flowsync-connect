@@ -1,12 +1,14 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, User } from "lucide-react";
 import { FlowSyncLogo, BptLogo } from "./Logos";
 
 export function SectionHeader({
   label,
+  userName,
   onLock,
 }: {
   label: string;
+  userName?: string;
   onLock?: () => void;
 }) {
   return (
@@ -27,12 +29,19 @@ export function SectionHeader({
           </span>
         </div>
         <div className="flex items-center gap-3">
+          {userName && (
+            <span className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground">
+              <User className="h-3.5 w-3.5 text-primary" />
+              {userName}
+            </span>
+          )}
           {onLock && (
             <button
               onClick={onLock}
               className="text-xs font-medium text-muted-foreground hover:text-primary"
+              title="Sign out of Office"
             >
-              Lock
+              Sign out
             </button>
           )}
           <BptLogo />

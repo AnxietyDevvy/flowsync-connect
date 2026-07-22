@@ -18,9 +18,11 @@ function uid() {
 
 export function OrderForm({
   orders,
+  createdBy,
   onDone,
 }: {
   orders: Order[];
+  createdBy: string;
   onDone: () => void;
 }) {
   const { products: catalog } = useFlowSync();
@@ -53,16 +55,21 @@ export function OrderForm({
     setProducts((p) => [...p, { id: uid(), name, quantity: "1" }]);
   };
 
-  const handleCreate = (send: boolean) => {
+  const handleCreate = async (send: boolean) => {
     const cleaned = products.filter((p) => p.name.trim() && p.quantity.trim());
     if (!orderNumber.trim() || cleaned.length === 0) return;
-    store.addOrder({ orderNumber, date, notes, products: cleaned });
+    await store.addOrder({ orderNumber, date, notes, products: cleaned, createdBy });
     if (send) {
-      try {
-        const raw = JSON.parse(localStorage.getItem("flowsync-state-v1") || "{}");
-        const match = (raw.orders || []).find((o: Order) => o.orderNumber === orderNumber);
-        if (match) store.sendOrder(match.id);
-      } catch {}
+      // After insert + refresh, find the row by its unique order number.
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("order_number", orderNumber)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data?.id) await store.sendOrder(data.id);
     }
     onDone();
   };
