@@ -1,5 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Printer, CheckCircle2, Pencil, Trash2, Inbox } from "lucide-react";
 import { SectionHeader } from "@/components/flowsync/SectionHeader";
 import { SupplyForm } from "@/components/flowsync/SupplyForm";
+import { PrintSheet } from "@/components/flowsync/PrintSheet";
 import { store, useFlowSync, type Order, type Supply } from "@/lib/flowsync-store";
 import { OrderStatusBadge, SupplyBadge, EmptyState, OrderView } from "./office";
 
@@ -23,12 +25,41 @@ export const Route = createFileRoute("/production")({
 function ProductionPage() {
   const { orders, supplies } = useFlowSync();
   const [viewing, setViewing] = useState<Order | null>(null);
+  const [printing, setPrinting] = useState<Order | null>(null);
   const [supplyDialog, setSupplyDialog] = useState<{ open: boolean; edit?: Supply }>({
     open: false,
   });
 
   const incoming = orders.filter((o) => o.status !== "draft");
   const pending = incoming.filter((o) => o.status === "sent").length;
+
+  useEffect(() => {
+    if (!printing) return;
+    let cancelled = false;
+    const run = async () => {
+      const imgs = Array.from(document.querySelectorAll<HTMLImageElement>("#flowsync-print-portal img"));
+      await Promise.all(
+        imgs.map((img) =>
+          img.complete
+            ? Promise.resolve()
+            : new Promise<void>((res) => {
+                img.addEventListener("load", () => res(), { once: true });
+                img.addEventListener("error", () => res(), { once: true });
+              }),
+        ),
+      );
+      if (cancelled) return;
+      const done = () => setPrinting(null);
+      window.addEventListener("afterprint", done, { once: true });
+      setTimeout(() => window.print(), 100);
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [printing]);
+
+  const startPrint = (o: Order) => setPrinting(o);
 
   return (
     <div className="min-h-screen bg-background">
@@ -68,6 +99,7 @@ function ProductionPage() {
                     order={o}
                     onView={() => setViewing(o)}
                     onComplete={() => store.completeOrder(o.id)}
+                    onPrint={() => startPrint(o)}
                   />
                 ))}
               </div>
@@ -149,10 +181,14 @@ function ProductionPage() {
                   </Button>
                 )}
                 {viewing.status === "completed" && (
-                  <Button asChild>
-                    <Link to="/production/print/$id" params={{ id: viewing.id }} target="_blank">
-                      <Printer className="mr-1 h-4 w-4" /> Print
-                    </Link>
+                  <Button
+                    onClick={() => {
+                      const o = viewing;
+                      setViewing(null);
+                      startPrint(o);
+                    }}
+                  >
+                    <Printer className="mr-1 h-4 w-4" /> Print
                   </Button>
                 )}
               </div>
@@ -175,6 +211,9 @@ function ProductionPage() {
           />
         </DialogContent>
       </Dialog>
+
+      {printing && typeof document !== "undefined" &&
+        createPortal(<PrintSheet order={printing} />, document.body)}
     </div>
   );
 }
@@ -183,10 +222,12 @@ function ProdOrderCard({
   order,
   onView,
   onComplete,
+  onPrint,
 }: {
   order: Order;
   onView: () => void;
   onComplete: () => void;
+  onPrint: () => void;
 }) {
   return (
     <Card className={order.status === "sent" ? "border-primary/40" : ""}>
@@ -215,10 +256,8 @@ function ProdOrderCard({
             </Button>
           )}
           {order.status === "completed" && (
-            <Button size="sm" asChild>
-              <Link to="/production/print/$id" params={{ id: order.id }} target="_blank">
-                <Printer className="mr-1 h-4 w-4" /> Print
-              </Link>
+            <Button size="sm" onClick={onPrint}>
+              <Printer className="mr-1 h-4 w-4" /> Print
             </Button>
           )}
         </div>
