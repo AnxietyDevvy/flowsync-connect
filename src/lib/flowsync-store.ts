@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export type OrderStatus = "draft" | "sent" | "completed";
 export type Product = { id: string; name: string; quantity: string };
@@ -9,6 +10,7 @@ export type Order = {
   products: Product[];
   notes: string;
   status: OrderStatus;
+  createdBy: string;
   createdAt: number;
   completedAt?: number;
 };
@@ -22,6 +24,7 @@ export type Supply = {
   notes: string;
   status: SupplyStatus;
   noticedByOffice: boolean;
+  noticedBy: string;
   updatedAt: number;
 };
 
@@ -36,179 +39,259 @@ type State = {
   orders: Order[];
   supplies: Supply[];
   products: CatalogProduct[];
+  loaded: boolean;
 };
 
-const KEY = "flowsync-state-v1";
+let state: State = { orders: [], supplies: [], products: [], loaded: false };
 const listeners = new Set<() => void>();
 
-const SEED_PRODUCTS: Array<{ name: string; category: string }> = [
-  { name: "ICW1 Level III +++ ULTRA LIGHT", category: "ICW / SA Plates" },
-  { name: "ICW2 Level III ++ SUPA LIGHT", category: "ICW / SA Plates" },
-  { name: "ICW3 Level III S A Mix", category: "ICW / SA Plates" },
-  { name: "ICW4 Level III S A Mix Ladies Front", category: "ICW / SA Plates" },
-  { name: "ICW5 Level IV", category: "ICW / SA Plates" },
-  { name: "ICW6 Level IV", category: "ICW / SA Plates" },
-  { name: "SA1 Level III ++ ULTRA LIGHT- SA", category: "ICW / SA Plates" },
-  { name: "SA2 Level III +++ SUPA LIGHT- SA", category: "ICW / SA Plates" },
-  { name: "SA3 Level III +++ ULTRA STEEL- SA", category: "ICW / SA Plates" },
-  { name: "SA4 Level III S A Mix- SA", category: "ICW / SA Plates" },
-  { name: "SA5 Level IV- SA", category: "ICW / SA Plates" },
-  { name: "SA6 Level III ++ ULTRA LIGHT- SA (side plate)", category: "ICW / SA Plates" },
-  { name: "SA7 Level III +++ ULTRA LIGHT- SA (side plate)", category: "ICW / SA Plates" },
-  { name: "SA8 Level IV- SA (side plate)", category: "ICW / SA Plates" },
-  { name: "SA9 Level III +++ ULTRA STEEL- SA (Large)", category: "ICW / SA Plates" },
-  { name: "ARAMID B4 (ARAB4)", category: "Vehicle Armor" },
-  { name: "UHMWPE Level B4 (UHMWPE5)", category: "Vehicle Armor" },
-  { name: "UHMWPE Level B6 (UHMWPE15)", category: "Vehicle Armor" },
-  { name: "UHMWPE Level B6 (UHMWPE18)", category: "Vehicle Armor" },
-  { name: "Vikashield Glass Reinforced Matrix", category: "Vehicle Armor" },
-  { name: "STANAG Level 2", category: "Military Vehicle Armor" },
-  { name: "STANAG Level 3(-)", category: "Military Vehicle Armor" },
-  { name: "STANAG Level 3 Full", category: "Military Vehicle Armor" },
-  { name: "STANAG Level 4", category: "Military Vehicle Armor" },
-  { name: "Vikashield", category: "Military Vehicle Armor" },
-  { name: "Aramid", category: "Military Vehicle Armor" },
-  { name: "UHMWPE", category: "Military Vehicle Armor" },
-  { name: "Level IIIA Shield", category: "Ballistic Shield" },
-];
-
-function seededProducts(): CatalogProduct[] {
-  return SEED_PRODUCTS.map((p, i) => ({
-    id: `seed-${i}`,
-    name: p.name,
-    category: p.category,
-    isCustom: false,
-  }));
-}
-
-function load(): State {
-  const empty: State = { orders: [], supplies: [], products: seededProducts() };
-  if (typeof window === "undefined") return empty;
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<State>;
-      return {
-        orders: parsed.orders ?? [],
-        supplies: parsed.supplies ?? [],
-        products:
-          parsed.products && parsed.products.length > 0
-            ? parsed.products
-            : seededProducts(),
-      };
-    }
-  } catch {}
-  return empty;
-}
-
-let state: State = load();
-
-function persist() {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(KEY, JSON.stringify(state));
+function emit() {
   listeners.forEach((l) => l());
+}
+function setState(patch: Partial<State>) {
+  state = { ...state, ...patch };
+  emit();
 }
 
 function subscribe(l: () => void) {
   listeners.add(l);
+  ensureBootstrap();
   return () => listeners.delete(l);
-}
-
-// Cross-tab sync
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (e) => {
-    if (e.key === KEY) {
-      state = load();
-      listeners.forEach((l) => l());
-    }
-  });
 }
 
 export function useFlowSync() {
   return useSyncExternalStore(
     subscribe,
     () => state,
-    () => ({ orders: [], supplies: [], products: seededProducts() }),
+    () => ({ orders: [], supplies: [], products: [], loaded: false }),
   );
 }
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
+// --- Row mapping ---
+
+type OrderRow = {
+  id: string;
+  order_number: string;
+  order_date: string;
+  products: Product[] | null;
+  notes: string | null;
+  status: OrderStatus;
+  created_by: string | null;
+  created_at: string;
+  completed_at: string | null;
+};
+function mapOrder(r: OrderRow): Order {
+  return {
+    id: r.id,
+    orderNumber: r.order_number,
+    date: r.order_date,
+    products: Array.isArray(r.products) ? r.products : [],
+    notes: r.notes ?? "",
+    status: r.status,
+    createdBy: r.created_by ?? "",
+    createdAt: new Date(r.created_at).getTime(),
+    completedAt: r.completed_at ? new Date(r.completed_at).getTime() : undefined,
+  };
 }
 
+type SupplyRow = {
+  id: string;
+  name: string;
+  stock: string | null;
+  reorder: string | null;
+  notes: string | null;
+  status: SupplyStatus;
+  noticed_by_office: boolean;
+  noticed_by: string | null;
+  updated_at: string;
+};
+function mapSupply(r: SupplyRow): Supply {
+  return {
+    id: r.id,
+    name: r.name,
+    stock: r.stock ?? "",
+    reorder: r.reorder ?? "",
+    notes: r.notes ?? "",
+    status: r.status,
+    noticedByOffice: r.noticed_by_office,
+    noticedBy: r.noticed_by ?? "",
+    updatedAt: new Date(r.updated_at).getTime(),
+  };
+}
+
+type ProductRow = {
+  id: string;
+  name: string;
+  category: string;
+  is_custom: boolean;
+};
+function mapProduct(r: ProductRow): CatalogProduct {
+  return { id: r.id, name: r.name, category: r.category, isCustom: r.is_custom };
+}
+
+// --- Bootstrap: initial fetch + realtime ---
+
+let bootstrapped = false;
+function ensureBootstrap() {
+  if (bootstrapped || typeof window === "undefined") return;
+  bootstrapped = true;
+  void loadAll();
+  const channel = supabase
+    .channel("flowsync")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "orders" },
+      () => refreshOrders(),
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "supplies" },
+      () => refreshSupplies(),
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "products" },
+      () => refreshProducts(),
+    )
+    .subscribe();
+  // Channel intentionally lives for app lifetime.
+  void channel;
+}
+
+async function loadAll() {
+  await Promise.all([refreshOrders(), refreshSupplies(), refreshProducts()]);
+  setState({ loaded: true });
+}
+
+async function refreshOrders() {
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) return console.error("orders load", error);
+  setState({ orders: (data as OrderRow[]).map(mapOrder) });
+}
+async function refreshSupplies() {
+  const { data, error } = await supabase
+    .from("supplies")
+    .select("*")
+    .order("updated_at", { ascending: false });
+  if (error) return console.error("supplies load", error);
+  setState({ supplies: (data as SupplyRow[]).map(mapSupply) });
+}
+async function refreshProducts() {
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .order("category")
+    .order("name");
+  if (error) return console.error("products load", error);
+  setState({ products: (data as ProductRow[]).map(mapProduct) });
+}
+
+// --- Mutations (fire-and-forget; realtime brings truth back) ---
+
 export const store = {
-  addOrder(o: Omit<Order, "id" | "createdAt" | "status">) {
-    state = {
-      ...state,
-      orders: [
-        { ...o, id: uid(), createdAt: Date.now(), status: "draft" },
-        ...state.orders,
-      ],
-    };
-    persist();
+  async addOrder(o: {
+    orderNumber: string;
+    date: string;
+    products: Product[];
+    notes: string;
+    createdBy: string;
+  }) {
+    const { error } = await supabase.from("orders").insert({
+      order_number: o.orderNumber,
+      order_date: o.date,
+      products: o.products,
+      notes: o.notes,
+      status: "draft",
+      created_by: o.createdBy,
+    });
+    if (error) console.error("addOrder", error);
+    await refreshOrders();
   },
-  updateOrder(id: string, patch: Partial<Order>) {
-    state = {
-      ...state,
-      orders: state.orders.map((o) => (o.id === id ? { ...o, ...patch } : o)),
-    };
-    persist();
+  async deleteOrder(id: string) {
+    const { error } = await supabase.from("orders").delete().eq("id", id);
+    if (error) console.error("deleteOrder", error);
+    await refreshOrders();
   },
-  deleteOrder(id: string) {
-    state = { ...state, orders: state.orders.filter((o) => o.id !== id) };
-    persist();
+  async sendOrder(id: string) {
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: "sent", sent_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) console.error("sendOrder", error);
+    await refreshOrders();
   },
-  sendOrder(id: string) {
-    this.updateOrder(id, { status: "sent" });
+  async completeOrder(id: string) {
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: "completed", completed_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) console.error("completeOrder", error);
+    await refreshOrders();
   },
-  completeOrder(id: string) {
-    this.updateOrder(id, { status: "completed", completedAt: Date.now() });
+
+  async addSupply(s: {
+    name: string;
+    stock: string;
+    reorder: string;
+    notes: string;
+    status: SupplyStatus;
+  }) {
+    const { error } = await supabase.from("supplies").insert({
+      name: s.name,
+      stock: s.stock,
+      reorder: s.reorder,
+      notes: s.notes,
+      status: s.status,
+      noticed_by_office: false,
+    });
+    if (error) console.error("addSupply", error);
+    await refreshSupplies();
   },
-  addSupply(s: Omit<Supply, "id" | "updatedAt" | "noticedByOffice">) {
-    state = {
-      ...state,
-      supplies: [
-        { ...s, id: uid(), updatedAt: Date.now(), noticedByOffice: false },
-        ...state.supplies,
-      ],
-    };
-    persist();
+  async updateSupply(
+    id: string,
+    patch: Partial<Omit<Supply, "id" | "updatedAt">>,
+  ) {
+    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (patch.name !== undefined) row.name = patch.name;
+    if (patch.stock !== undefined) row.stock = patch.stock;
+    if (patch.reorder !== undefined) row.reorder = patch.reorder;
+    if (patch.notes !== undefined) row.notes = patch.notes;
+    if (patch.status !== undefined) row.status = patch.status;
+    if (patch.noticedByOffice !== undefined) row.noticed_by_office = patch.noticedByOffice;
+    if (patch.noticedBy !== undefined) row.noticed_by = patch.noticedBy;
+    const { error } = await supabase.from("supplies").update(row).eq("id", id);
+    if (error) console.error("updateSupply", error);
+    await refreshSupplies();
   },
-  updateSupply(id: string, patch: Partial<Supply>) {
-    state = {
-      ...state,
-      supplies: state.supplies.map((s) =>
-        s.id === id ? { ...s, ...patch, updatedAt: Date.now() } : s,
-      ),
-    };
-    persist();
+  async deleteSupply(id: string) {
+    const { error } = await supabase.from("supplies").delete().eq("id", id);
+    if (error) console.error("deleteSupply", error);
+    await refreshSupplies();
   },
-  deleteSupply(id: string) {
-    state = { ...state, supplies: state.supplies.filter((s) => s.id !== id) };
-    persist();
+  async noticeSupply(id: string, by: string) {
+    await this.updateSupply(id, { noticedByOffice: true, noticedBy: by });
   },
-  noticeSupply(id: string) {
-    this.updateSupply(id, { noticedByOffice: true });
-  },
-  addProduct(name: string, category: string) {
+
+  async addProduct(name: string, category: string) {
     const trimmed = name.trim();
     const cat = category.trim() || "Uncategorized";
     if (!trimmed) return;
-    state = {
-      ...state,
-      products: [
-        ...state.products,
-        { id: uid(), name: trimmed, category: cat, isCustom: true },
-      ],
-    };
-    persist();
+    const { error } = await supabase
+      .from("products")
+      .insert({ name: trimmed, category: cat, is_custom: true });
+    if (error) console.error("addProduct", error);
+    await refreshProducts();
   },
-  deleteProduct(id: string) {
-    state = {
-      ...state,
-      products: state.products.filter((p) => !(p.id === id && p.isCustom)),
-    };
-    persist();
+  async deleteProduct(id: string) {
+    // Server allows any delete; guard client-side to only remove custom entries.
+    const target = state.products.find((p) => p.id === id);
+    if (!target || !target.isCustom) return;
+    const { error } = await supabase.from("products").delete().eq("id", id);
+    if (error) console.error("deleteProduct", error);
+    await refreshProducts();
   },
 };
 
@@ -226,3 +309,14 @@ export function nextOrderNumber(orders: Order[]) {
 
 export const OFFICE_PASSWORD = "bpt-office";
 export const OFFICE_UNLOCK_KEY = "flowsync-office-unlocked";
+export const OFFICE_USERNAME_KEY = "flowsync-office-username";
+
+export function getSavedOfficeName(): string {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem(OFFICE_USERNAME_KEY) ?? "";
+}
+export function setSavedOfficeName(name: string) {
+  if (typeof window === "undefined") return;
+  if (name) localStorage.setItem(OFFICE_USERNAME_KEY, name);
+  else localStorage.removeItem(OFFICE_USERNAME_KEY);
+}
