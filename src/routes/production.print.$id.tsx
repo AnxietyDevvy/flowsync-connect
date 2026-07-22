@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Printer, ArrowLeft } from "lucide-react";
 import { BptLogo, FlowSyncLogo } from "@/components/flowsync/Logos";
 import { useFlowSync } from "@/lib/flowsync-store";
@@ -12,13 +12,38 @@ function PrintPage() {
   const { id } = Route.useParams();
   const { orders } = useFlowSync();
   const order = orders.find((o) => o.id === id);
+  const [hydrated, setHydrated] = useState(false);
+  const printedRef = useRef(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (order) {
-      const t = setTimeout(() => window.print(), 400);
-      return () => clearTimeout(t);
-    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!order || printedRef.current) return;
+    printedRef.current = true;
+    const imgs = Array.from(sheetRef.current?.querySelectorAll("img") ?? []);
+    const waits = imgs.map((img) =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise<void>((res) => {
+            img.addEventListener("load", () => res(), { once: true });
+            img.addEventListener("error", () => res(), { once: true });
+          }),
+    );
+    Promise.all(waits).then(() => {
+      setTimeout(() => window.print(), 200);
+    });
   }, [order]);
+
+  if (!hydrated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-8 text-sm text-neutral-500">
+        Loading order…
+      </div>
+    );
+  }
 
   if (!order) {
     return (
@@ -37,7 +62,7 @@ function PrintPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-black">
+    <div ref={sheetRef} className="min-h-screen bg-white text-black">
       <div className="mx-auto max-w-3xl px-8 py-6 print:px-0 print:py-0">
         <div className="mb-6 flex justify-end gap-3 print:hidden">
           <Link
