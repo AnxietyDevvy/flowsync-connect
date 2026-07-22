@@ -73,6 +73,9 @@ export function PrintSheet({ order }: { order: Order }) {
               <div className="border-t-2 border-black pt-2 text-xs font-bold uppercase tracking-wider">
                 Prepared by (signature)
               </div>
+              {order.createdBy && (
+                <div className="mt-1 text-sm">{order.createdBy}</div>
+              )}
             </div>
             <div>
               <div className="border-t-2 border-black pt-2 text-xs font-bold uppercase tracking-wider">
