@@ -326,6 +326,7 @@ function OrderCard({
           <div className="mt-1 text-xs text-muted-foreground">
             {order.date} · {order.products.length} product
             {order.products.length !== 1 ? "s" : ""}
+            {order.createdBy && ` · by ${order.createdBy}`}
           </div>
         </div>
         <div className="flex gap-2">
