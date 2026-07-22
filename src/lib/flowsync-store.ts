@@ -254,7 +254,16 @@ export const store = {
     id: string,
     patch: Partial<Omit<Supply, "id" | "updatedAt">>,
   ) {
-    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const row: {
+      updated_at: string;
+      name?: string;
+      stock?: string;
+      reorder?: string;
+      notes?: string;
+      status?: SupplyStatus;
+      noticed_by_office?: boolean;
+      noticed_by?: string;
+    } = { updated_at: new Date().toISOString() };
     if (patch.name !== undefined) row.name = patch.name;
     if (patch.stock !== undefined) row.stock = patch.stock;
     if (patch.reorder !== undefined) row.reorder = patch.reorder;
