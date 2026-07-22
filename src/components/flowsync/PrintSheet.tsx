@@ -4,7 +4,7 @@ import type { Order } from "@/lib/flowsync-store";
 export function PrintSheet({ order }: { order: Order }) {
   return (
     <>
-      <div id="flowsync-print-area" className="hidden print:block bg-white text-black">
+      <div id="flowsync-print-portal" className="hidden print:block bg-white text-black">
         <div className="mx-auto max-w-3xl px-8 py-6">
           <div className="border-b-4 border-red-600 pb-4">
             <div className="flex items-start justify-between gap-4">
@@ -90,30 +90,11 @@ export function PrintSheet({ order }: { order: Order }) {
       <style>{`
         @media print {
           @page { margin: 1.5cm; }
-          html, body { background: white !important; }
-          body > *:not(#flowsync-print-portal) { display: none !important; }
-          #flowsync-print-portal, #flowsync-print-portal * { visibility: visible; }
-          #flowsync-print-area { display: block !important; }
+          html, body { background: white !important; margin: 0 !important; }
+          body > *:not(#flowsync-print-portal-wrapper) { display: none !important; }
+          #flowsync-print-portal { display: block !important; }
         }
       `}</style>
     </>
   );
-}
-
-export async function printOrder(order: Order, mount: (node: React.ReactNode) => Promise<void>, unmount: () => void) {
-  await mount(<PrintSheet order={order} />);
-  const imgs = Array.from(document.querySelectorAll<HTMLImageElement>("#flowsync-print-area img"));
-  await Promise.all(
-    imgs.map((img) =>
-      img.complete
-        ? Promise.resolve()
-        : new Promise<void>((res) => {
-            img.addEventListener("load", () => res(), { once: true });
-            img.addEventListener("error", () => res(), { once: true });
-          }),
-    ),
-  );
-  await new Promise((r) => setTimeout(r, 100));
-  window.print();
-  unmount();
 }
