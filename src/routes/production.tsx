@@ -15,6 +15,7 @@ import { Plus, Printer, CheckCircle2, Pencil, Trash2, Inbox } from "lucide-react
 import { SectionHeader } from "@/components/flowsync/SectionHeader";
 import { SupplyForm } from "@/components/flowsync/SupplyForm";
 import { PrintSheet } from "@/components/flowsync/PrintSheet";
+import { SuppliesImport } from "@/components/flowsync/SuppliesImport";
 import { store, useFlowSync, type Order, type Supply } from "@/lib/flowsync-store";
 import { OrderStatusBadge, SupplyBadge, EmptyState, OrderView } from "./office";
 
@@ -117,6 +118,7 @@ function ProductionPage() {
               <Button onClick={() => setSupplyDialog({ open: true })}>
                 <Plus className="mr-1 h-4 w-4" /> Add supply
               </Button>
+              <SuppliesImport importedBy="Production" />
             </div>
             {supplies.length === 0 ? (
               <EmptyState
