@@ -231,6 +231,25 @@ export const store = {
     if (error) console.error("completeOrder", error);
     await refreshOrders();
   },
+  async updateOrderStatus(id: string, status: OrderStatus) {
+    const patch: {
+      status: OrderStatus;
+      sent_at?: string | null;
+      completed_at?: string | null;
+    } = { status };
+    if (status === "draft") {
+      patch.sent_at = null;
+      patch.completed_at = null;
+    } else if (status === "sent") {
+      patch.sent_at = new Date().toISOString();
+      patch.completed_at = null;
+    } else if (status === "completed") {
+      patch.completed_at = new Date().toISOString();
+    }
+    const { error } = await supabase.from("orders").update(patch).eq("id", id);
+    if (error) console.error("updateOrderStatus", error);
+    await refreshOrders();
+  },
 
   async addSupply(s: {
     name: string;
@@ -302,6 +321,11 @@ export const store = {
     if (error) console.error("deleteProduct", error);
     await refreshProducts();
   },
+  async forceDeleteProduct(id: string) {
+    const { error } = await supabase.from("products").delete().eq("id", id);
+    if (error) console.error("forceDeleteProduct", error);
+    await refreshProducts();
+  },
 };
 
 export function nextOrderNumber(orders: Order[]) {
@@ -319,6 +343,9 @@ export function nextOrderNumber(orders: Order[]) {
 export const OFFICE_PASSWORD = "bpt-office";
 export const OFFICE_UNLOCK_KEY = "flowsync-office-unlocked";
 export const OFFICE_USERNAME_KEY = "flowsync-office-username";
+
+export const ADMIN_PASSWORD = "bpt-admin";
+export const ADMIN_UNLOCK_KEY = "flowsync-admin-unlocked";
 
 export function getSavedOfficeName(): string {
   if (typeof window === "undefined") return "";
