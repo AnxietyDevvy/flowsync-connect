@@ -19,6 +19,7 @@ import { SectionHeader } from "@/components/flowsync/SectionHeader";
 import { FlowSyncLogo } from "@/components/flowsync/Logos";
 import { OrderForm } from "@/components/flowsync/OrderForm";
 import { ProductsManager } from "@/components/flowsync/ProductsManager";
+import { SuppliesImport } from "@/components/flowsync/SuppliesImport";
 import {
   OFFICE_PASSWORD,
   OFFICE_UNLOCK_KEY,
@@ -247,11 +248,14 @@ function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void 
           </TabsContent>
 
           <TabsContent value="supplies" className="mt-6">
-            <div className="mb-4">
-              <h2 className="text-2xl font-bold">Supplies</h2>
-              <p className="text-sm text-muted-foreground">
-                Read-only view. Mark items as noticed to clear alerts.
-              </p>
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold">Supplies</h2>
+                <p className="text-sm text-muted-foreground">
+                  Mark items as noticed, or import a spreadsheet to update stock levels.
+                </p>
+              </div>
+              <SuppliesImport importedBy={userName} />
             </div>
             {supplies.length === 0 ? (
               <EmptyState
