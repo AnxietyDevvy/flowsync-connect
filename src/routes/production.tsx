@@ -115,10 +115,12 @@ function ProductionPage() {
                   Track stock levels. Office will be notified of new entries.
                 </p>
               </div>
-              <Button onClick={() => setSupplyDialog({ open: true })}>
-                <Plus className="mr-1 h-4 w-4" /> Add supply
-              </Button>
-              <SuppliesImport importedBy="Production" />
+              <div className="flex gap-2">
+                <SuppliesImport importedBy="Production" />
+                <Button onClick={() => setSupplyDialog({ open: true })}>
+                  <Plus className="mr-1 h-4 w-4" /> Add supply
+                </Button>
+              </div>
             </div>
             {supplies.length === 0 ? (
               <EmptyState
