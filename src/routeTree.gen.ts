@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ProductionRouteImport } from './routes/production'
 import { Route as OfficeRouteImport } from './routes/office'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProductionPrintIdRouteImport } from './routes/production.print.$id'
 
@@ -22,6 +23,11 @@ const ProductionRoute = ProductionRouteImport.update({
 const OfficeRoute = OfficeRouteImport.update({
   id: '/office',
   path: '/office',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -37,12 +43,14 @@ const ProductionPrintIdRoute = ProductionPrintIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/office': typeof OfficeRoute
   '/production': typeof ProductionRouteWithChildren
   '/production/print/$id': typeof ProductionPrintIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/office': typeof OfficeRoute
   '/production': typeof ProductionRouteWithChildren
   '/production/print/$id': typeof ProductionPrintIdRoute
@@ -50,20 +58,33 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/office': typeof OfficeRoute
   '/production': typeof ProductionRouteWithChildren
   '/production/print/$id': typeof ProductionPrintIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/office' | '/production' | '/production/print/$id'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/office'
+    | '/production'
+    | '/production/print/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/office' | '/production' | '/production/print/$id'
-  id: '__root__' | '/' | '/office' | '/production' | '/production/print/$id'
+  to: '/' | '/admin' | '/office' | '/production' | '/production/print/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/office'
+    | '/production'
+    | '/production/print/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   OfficeRoute: typeof OfficeRoute
   ProductionRoute: typeof ProductionRouteWithChildren
 }
@@ -82,6 +103,13 @@ declare module '@tanstack/react-router' {
       path: '/office'
       fullPath: '/office'
       preLoaderRoute: typeof OfficeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -115,6 +143,7 @@ const ProductionRouteWithChildren = ProductionRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   OfficeRoute: OfficeRoute,
   ProductionRoute: ProductionRouteWithChildren,
 }
