@@ -1,47 +1,33 @@
-## Goal
+## Part 1 — Production orders across devices
 
-Two changes:
-1. Keep the shared Office password (`bpt-office`) but also ask for a **username** so every action shows who did it.
-2. Move Orders, Supplies, and Products from browser localStorage into **Lovable Cloud** so Office and Production see the same live data on every device.
+Already done. Production reads from the same Cloud-backed store as Office (`useFlowSync` → Supabase `orders` table with realtime). Any order Office sends shows up on every Production device within ~1 second, and status changes (complete) sync back the same way. No changes needed.
 
-## 1. Username on the Office side
+## Part 2 — Excel upload for Supplies
 
-- Update the Office password screen to ask for two fields: **Your name** and **Password**. Both required.
-- Store the entered name in `localStorage` on that device (so users don't retype it every visit) — this is just a display label, not authentication.
-- Show the current user's name in the Office header with a "Switch user / Sign out of Office" button that clears both the unlock flag and the saved name.
-- Stamp `createdBy` on every new order (and on any supply the Office user marks as "noticed") using this name.
-- Show "Created by {name}" on order cards, in the order detail dialog, and on the printed sheet (next to "Prepared by").
-- Production side stays unchanged (no password, no name prompt) — but they'll see the Office user's name on incoming orders.
+Add an "Import Excel" button on the **Supplies** tab (both Office and Production, since both can view supplies today and Production manages them).
 
-## 2. Cloud sync for Orders, Supplies, Products
+### Behavior (sensible defaults since questions were skipped)
 
-Enable **Lovable Cloud** and create three tables:
+- Accepts `.xlsx` and `.csv`.
+- Expected columns (case-insensitive, flexible order): **Item name**, **Stock**, **Reorder**, **Notes** (optional). If the header names differ, show a quick column-mapping dropdown before importing.
+- **Match by item name** (case-insensitive):
+  - Existing item → update `stock`, `reorder`, `notes`.
+  - New item → insert it.
+  - Items in the app but not in the file → left alone (not deleted).
+- **Auto status** from numbers: after each import, `status` is recalculated per row — `out` if stock ≤ 0, `low` if stock ≤ reorder, otherwise `ok`. This is what "automatically tracks the supply level" means in practice: re-upload the sheet (or edit stock in the app) and the low/reorder flags update themselves.
+- Preview dialog before committing: shows counts ("12 updated, 3 new, 0 skipped") and any rows with problems (missing name, non-numeric stock) so nothing gets silently mangled.
+- Stamps `noticedBy` / an "imported by {name}" note using the Office username when uploaded from Office; Production uploads use "Production".
 
-- `orders` — order_number, date, products (jsonb array of `{id, name, quantity}`), notes, status (`draft` | `sent` | `completed`), created_by, created_at, sent_at, completed_at.
-- `supplies` — name, stock, reorder, notes, status (`ok` | `low` | `out`), noticed (bool), noticed_by, updated_at.
-- `products` — name, category, is_custom (bool). Seeded with the 28 items from the earlier list via a migration.
+### Files touched
 
-Because there's no real login (shared password only), all three tables will be readable/writable by `anon` — this matches the current "internal tool, one shared secret" model. This is documented as an accepted risk in security memory.
+- **New** `src/lib/supplies-import.ts` — parse xlsx/csv with `xlsx` (SheetJS), normalize headers, compute status, return `{ toInsert, toUpdate, problems }`.
+- **New** `src/components/flowsync/SuppliesImport.tsx` — file picker + preview dialog + confirm button. Calls `store.addSupply` / `store.updateSupply` in a batch.
+- **Update** `src/lib/flowsync-store.ts` — add `store.upsertSuppliesBulk(rows)` so the import commits in one round-trip instead of N.
+- **Update** `src/routes/office.tsx` and `src/routes/production.tsx` — add the "Import Excel" button on the Supplies tab.
+- **Add dep** `xlsx` (SheetJS community build) — handles both `.xlsx` and `.csv`.
 
-Rewrite `src/lib/flowsync-store.ts` to:
-- Fetch each collection from Supabase on load (via TanStack Query, following the project's loader + `useSuspenseQuery` pattern).
-- Subscribe to Postgres Realtime for each table so a change on one device shows up on the other within ~1s.
-- Replace every mutation (create order, send, complete, add/update/delete supply, add/delete product, mark supply noticed) with a Supabase call, keeping the existing function signatures so the UI components don't need rewrites beyond passing `createdBy`.
-- Drop the old localStorage persistence for these three collections. Keep localStorage only for: Office unlock flag, saved username.
+### Not included (ask if you want them)
 
-Print route currently reads from the store — it will keep working because the store now hydrates from Cloud on load.
-
-## 3. Files touched
-
-- **New migration**: `orders`, `supplies`, `products` tables + grants + seed for the 28 products.
-- **New**: `src/lib/flowsync-api.ts` — thin Supabase read/write/realtime layer.
-- **Rewrite**: `src/lib/flowsync-store.ts` — now backed by Cloud instead of localStorage.
-- **Update**: `src/routes/office.tsx` — password screen adds a name field; header shows name + switch-user; passes `createdBy` when creating orders and marking supplies noticed.
-- **Update**: `src/components/flowsync/OrderForm.tsx` — accepts `createdBy` prop.
-- **Update**: `src/components/flowsync/PrintSheet.tsx` and `src/components/flowsync/SectionHeader.tsx` — show "Prepared by {name}" / current user chip.
-- **Update**: `src/routes/production.tsx` — display "From: {name}" on incoming order cards.
-
-## What this is NOT
-
-- Not real per-user accounts. Anyone with the shared password can type any name. If two people want tighter control (audit trail, revoke individual access, password reset), that's the "Real user accounts" option and I can add it later.
-- Not role-based access on the DB — the shared-password gate stays purely client-side; the security guarantee is the same as today.
+- Deleting supplies that are missing from the sheet (destructive; off by default).
+- Scheduled/automatic re-imports from a shared drive — this is a manual upload each time.
+- History of past imports.
