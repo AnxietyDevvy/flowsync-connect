@@ -1,33 +1,40 @@
-## Part 1 — Production orders across devices
+## Hidden admin section
 
-Already done. Production reads from the same Cloud-backed store as Office (`useFlowSync` → Supabase `orders` table with realtime). Any order Office sends shows up on every Production device within ~1 second, and status changes (complete) sync back the same way. No changes needed.
+Add a hidden `/admin` route protected by password `bpt-admin` that shows a full dashboard of the app's data.
 
-## Part 2 — Excel upload for Supplies
+### Access
+- URL: `/admin` (not linked anywhere in the UI — accessed only by typing the URL directly)
+- Password gate identical in style to the Office gate; unlock stored in `sessionStorage` (`ADMIN_UNLOCK_KEY`) so it persists during the session but clears on browser close
+- Sign-out button in the header returns to landing
 
-Add an "Import Excel" button on the **Supplies** tab (both Office and Production, since both can view supplies today and Production manages them).
+### Dashboard sections (tabbed)
 
-### Behavior (sensible defaults since questions were skipped)
+**1. Overview**
+- Order counts: total, draft, sent, completed
+- Supply counts by status: OK, low, out
+- Product count (with breakdown by category, including custom vs seeded)
+- Recent activity feed: latest 10 orders + supply changes, newest first
 
-- Accepts `.xlsx` and `.csv`.
-- Expected columns (case-insensitive, flexible order): **Item name**, **Stock**, **Reorder**, **Notes** (optional). If the header names differ, show a quick column-mapping dropdown before importing.
-- **Match by item name** (case-insensitive):
-  - Existing item → update `stock`, `reorder`, `notes`.
-  - New item → insert it.
-  - Items in the app but not in the file → left alone (not deleted).
-- **Auto status** from numbers: after each import, `status` is recalculated per row — `out` if stock ≤ 0, `low` if stock ≤ reorder, otherwise `ok`. This is what "automatically tracks the supply level" means in practice: re-upload the sheet (or edit stock in the app) and the low/reorder flags update themselves.
-- Preview dialog before committing: shows counts ("12 updated, 3 new, 0 skipped") and any rows with problems (missing name, non-numeric stock) so nothing gets silently mangled.
-- Stamps `noticedBy` / an "imported by {name}" note using the Office username when uploaded from Office; Production uploads use "Production".
+**2. Data tables** (full CRUD across everything)
+- **Orders** — full list with status, order #, date, created by, product count, notes. Actions: view details (expand), delete, force-change status (draft/sent/completed)
+- **Supplies** — full list with stock, reorder, status, noticed-by. Actions: edit, delete
+- **Products** — full catalog. Actions: delete (including seeded ones, since admin overrides Office's custom-only restriction)
 
-### Files touched
+**3. Activity log**
+- Chronological list derived from `createdBy` / `noticedBy` / `sentAt` / `completedAt` stamps across orders and supplies
+- Grouped by user name, with counts (e.g. "Sarah — 12 orders created, 3 supplies noticed")
+- Filterable by user name
 
-- **New** `src/lib/supplies-import.ts` — parse xlsx/csv with `xlsx` (SheetJS), normalize headers, compute status, return `{ toInsert, toUpdate, problems }`.
-- **New** `src/components/flowsync/SuppliesImport.tsx` — file picker + preview dialog + confirm button. Calls `store.addSupply` / `store.updateSupply` in a batch.
-- **Update** `src/lib/flowsync-store.ts` — add `store.upsertSuppliesBulk(rows)` so the import commits in one round-trip instead of N.
-- **Update** `src/routes/office.tsx` and `src/routes/production.tsx` — add the "Import Excel" button on the Supplies tab.
-- **Add dep** `xlsx` (SheetJS community build) — handles both `.xlsx` and `.csv`.
+### Files
 
-### Not included (ask if you want them)
+- **New** `src/routes/admin.tsx` — password gate + tabbed dashboard (Overview / Data / Activity). Reuses `useFlowSync` store hooks so it's live-synced with Cloud data.
+- **New** `src/components/flowsync/admin/AdminOverview.tsx` — stat cards + recent activity
+- **New** `src/components/flowsync/admin/AdminDataTables.tsx` — three tables with inline actions
+- **New** `src/components/flowsync/admin/AdminActivityLog.tsx` — user activity aggregation
+- **Update** `src/lib/flowsync-store.ts` — add `store.updateOrderStatus(id, status)` and `store.deleteSupply(id)` / `store.deleteProduct(id)` if not already present (admin needs unrestricted delete)
+- **Update** `src/components/flowsync/SectionHeader.tsx` — accept an `"ADMIN"` label variant (uses same red chip)
 
-- Deleting supplies that are missing from the sheet (destructive; off by default).
-- Scheduled/automatic re-imports from a shared drive — this is a manual upload each time.
-- History of past imports.
+### Security notes
+- Client-side password check only (per your choice). The password lives in the JS bundle — anyone who inspects the source can find it. That's the same trade-off as the Office gate.
+- No changes to Supabase RLS — admin uses the same anon-accessible policies the rest of the app uses.
+- Route is not linked from anywhere (landing, headers, nav). Only reachable by typing `/admin`.
