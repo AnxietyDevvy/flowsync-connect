@@ -60,7 +60,6 @@ function OfficePage() {
       userName={state.name}
       onLock={() => {
         sessionStorage.removeItem(OFFICE_UNLOCK_KEY);
-        setSavedOfficeName("");
         setStateVal({ unlocked: false, name: "" });
       }}
     />
