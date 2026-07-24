@@ -1,40 +1,42 @@
-## Hidden admin section
+## Welcome / preferences screen before section chooser
 
-Add a hidden `/admin` route protected by password `bpt-admin` that shows a full dashboard of the app's data.
+Add a first-run "Welcome" screen that captures **Name**, **Work section** (Office / Production), and **App theme** (Red / Light / Dark). Once completed, the app skips the "Choose your section" landing and routes the user straight into their section (Office still asks for `bpt-office`).
 
-### Access
-- URL: `/admin` (not linked anywhere in the UI — accessed only by typing the URL directly)
-- Password gate identical in style to the Office gate; unlock stored in `sessionStorage` (`ADMIN_UNLOCK_KEY`) so it persists during the session but clears on browser close
-- Sign-out button in the header returns to landing
+### Behavior
 
-### Dashboard sections (tabbed)
+- On first visit, `/` shows the Welcome form instead of the chooser.
+- Fields: Name (text), Work section (Office / Production), Theme (Red / Light / Dark, with visual swatches).
+- Persisted in `localStorage` (survives browser close). Keys:
+  - `flowsync-user-name` (reuses existing `OFFICE_USERNAME_KEY` so Office gate is pre-filled)
+  - `flowsync-user-section` = `"office" | "production"`
+  - `flowsync-theme` = `"red" | "light" | "dark"`
+- After submit: apply theme, then redirect to `/office` or `/production`.
+- On `/` for returning users: auto-redirect to their saved section (no chooser). A small "Change preferences" link on each section header lets them reopen the Welcome screen.
+- Sign out on Office still clears the Office password unlock but keeps preferences (so they return to their section, not the chooser).
 
-**1. Overview**
-- Order counts: total, draft, sent, completed
-- Supply counts by status: OK, low, out
-- Product count (with breakdown by category, including custom vs seeded)
-- Recent activity feed: latest 10 orders + supply changes, newest first
+### Themes
 
-**2. Data tables** (full CRUD across everything)
-- **Orders** — full list with status, order #, date, created by, product count, notes. Actions: view details (expand), delete, force-change status (draft/sent/completed)
-- **Supplies** — full list with stock, reorder, status, noticed-by. Actions: edit, delete
-- **Products** — full catalog. Actions: delete (including seeded ones, since admin overrides Office's custom-only restriction)
+Three variants defined as CSS token sets in `src/styles.css`, toggled by a `data-theme` attribute on `<html>`:
 
-**3. Activity log**
-- Chronological list derived from `createdBy` / `noticedBy` / `sentAt` / `completedAt` stamps across orders and supplies
-- Grouped by user name, with counts (e.g. "Sarah — 12 orders created, 3 supplies noticed")
-- Filterable by user name
+- **Red** (default, current look): black surfaces, red primary accent, grey secondary — as today.
+- **Light**: white/near-white surfaces, dark text, muted grey borders, red kept as accent for status/CTAs.
+- **Dark**: neutral dark greys (softer than Red), red only on primary buttons/status.
+
+A tiny theme runtime (`src/lib/theme.ts`) reads the saved theme on boot and sets `document.documentElement.dataset.theme` before React mounts to avoid a flash.
 
 ### Files
 
-- **New** `src/routes/admin.tsx` — password gate + tabbed dashboard (Overview / Data / Activity). Reuses `useFlowSync` store hooks so it's live-synced with Cloud data.
-- **New** `src/components/flowsync/admin/AdminOverview.tsx` — stat cards + recent activity
-- **New** `src/components/flowsync/admin/AdminDataTables.tsx` — three tables with inline actions
-- **New** `src/components/flowsync/admin/AdminActivityLog.tsx` — user activity aggregation
-- **Update** `src/lib/flowsync-store.ts` — add `store.updateOrderStatus(id, status)` and `store.deleteSupply(id)` / `store.deleteProduct(id)` if not already present (admin needs unrestricted delete)
-- **Update** `src/components/flowsync/SectionHeader.tsx` — accept an `"ADMIN"` label variant (uses same red chip)
+- **New** `src/lib/theme.ts` — `getTheme()`, `setTheme()`, `applyTheme()`, keys, and a `useTheme()` hook via `useSyncExternalStore`.
+- **New** `src/lib/user-prefs.ts` — get/set for name + section + `hasCompletedWelcome()`.
+- **New** `src/components/flowsync/WelcomeForm.tsx` — the 3-field form with theme swatches.
+- **Update** `src/routes/index.tsx` — if prefs missing, render `WelcomeForm`; if present, redirect to saved section. Add a "Change preferences" entry point.
+- **Update** `src/routes/__root.tsx` — apply saved theme on mount so it's live app-wide.
+- **Update** `src/styles.css` — add `[data-theme="light"]` and `[data-theme="dark"]` token blocks alongside the current `:root` (Red theme). All existing semantic tokens (`--background`, `--foreground`, `--primary`, `--card`, `--border`, `--muted`, etc.) get redefined per theme, so components don't need changes.
+- **Update** `src/components/flowsync/SectionHeader.tsx` — add a small "Preferences" button and a theme quick-switcher (Red / Light / Dark).
+- **Update** `src/routes/office.tsx` — pre-fill the name field from saved prefs; on sign out, keep prefs (only clear the Office password unlock).
 
-### Security notes
-- Client-side password check only (per your choice). The password lives in the JS bundle — anyone who inspects the source can find it. That's the same trade-off as the Office gate.
-- No changes to Supabase RLS — admin uses the same anon-accessible policies the rest of the app uses.
-- Route is not linked from anywhere (landing, headers, nav). Only reachable by typing `/admin`.
+### Not changing
+
+- No new tables or auth changes. Preferences are per-device (localStorage), matching the current app model.
+- Office password (`bpt-office`) still required to enter Office — the welcome screen only records identity + destination + theme.
+- Admin route (`/admin`) is unaffected and still hidden.
