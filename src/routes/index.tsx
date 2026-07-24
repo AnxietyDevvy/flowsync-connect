@@ -1,12 +1,69 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { Building2, Factory } from "lucide-react";
+import { useEffect, useState } from "react";
 import { FlowSyncLogo, BptLogo } from "@/components/flowsync/Logos";
+import { WelcomeForm } from "@/components/flowsync/WelcomeForm";
+import { getUserPrefs, hasCompletedWelcome } from "@/lib/user-prefs";
+
+type IndexSearch = { prefs?: string };
 
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>): IndexSearch => ({
+    prefs: typeof search.prefs === "string" ? search.prefs : undefined,
+  }),
   component: Landing,
 });
 
 function Landing() {
+  const navigate = useNavigate();
+  const { prefs } = useSearch({ from: "/" });
+  const [ready, setReady] = useState(false);
+  const [mode, setMode] = useState<"welcome" | "chooser">("chooser");
+
+  useEffect(() => {
+    const editRequested = prefs === "1";
+    if (editRequested) {
+      setMode("welcome");
+      setReady(true);
+      return;
+    }
+    if (!hasCompletedWelcome()) {
+      setMode("welcome");
+      setReady(true);
+      return;
+    }
+    const p = getUserPrefs();
+    if (p.section === "office") {
+      navigate({ to: "/office" });
+    } else if (p.section === "production") {
+      navigate({ to: "/production" });
+    } else {
+      setMode("chooser");
+      setReady(true);
+    }
+  }, [prefs, navigate]);
+
+  if (!ready) return null;
+
+  if (mode === "welcome") {
+    const p = getUserPrefs();
+    return (
+      <WelcomeForm
+        initialName={p.name}
+        initialSection={p.section}
+        title={prefs === "1" ? "Update your preferences" : "Welcome to FlowSync"}
+        subtitle={
+          prefs === "1"
+            ? "Change your name, section, or theme."
+            : "Set up your workspace to get started."
+        }
+        onDone={({ section }) => {
+          navigate({ to: section === "office" ? "/office" : "/production" });
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
@@ -27,8 +84,8 @@ function Landing() {
         </div>
 
         <div className="grid gap-6 sm:grid-cols-2">
-          <Link
-            to="/office"
+          <a
+            href="/office"
             className="group relative overflow-hidden rounded-xl border border-border bg-card p-8 shadow-sm transition-all hover:-translate-y-1 hover:border-primary hover:shadow-lg"
           >
             <div className="absolute right-0 top-0 h-32 w-32 -translate-y-8 translate-x-8 rounded-full bg-primary/5 transition-transform group-hover:scale-125" />
@@ -44,10 +101,10 @@ function Landing() {
                 Password required →
               </p>
             </div>
-          </Link>
+          </a>
 
-          <Link
-            to="/production"
+          <a
+            href="/production"
             className="group relative overflow-hidden rounded-xl border border-border bg-card p-8 shadow-sm transition-all hover:-translate-y-1 hover:border-primary hover:shadow-lg"
           >
             <div className="absolute right-0 top-0 h-32 w-32 -translate-y-8 translate-x-8 rounded-full bg-primary/5 transition-transform group-hover:scale-125" />
@@ -63,7 +120,7 @@ function Landing() {
                 Open section →
               </p>
             </div>
-          </Link>
+          </a>
         </div>
       </main>
     </div>
