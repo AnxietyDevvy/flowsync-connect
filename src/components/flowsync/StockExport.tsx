@@ -40,8 +40,8 @@ export function StockExport() {
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Downloads an Excel file with three sheets: current supplies snapshot,
-            product stock &amp; materials, and orders from the selected month.
+            Downloads an Excel file with a single sheet listing every supply
+            with columns: Item Name, Stock, Reorder, Notes.
           </p>
           <div className="space-y-1.5">
             <Label htmlFor="month">Month</Label>
