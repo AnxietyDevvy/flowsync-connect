@@ -392,10 +392,12 @@ function DataTables({
   orders,
   supplies,
   products,
+  suppliers,
 }: {
   orders: Order[];
   supplies: Supply[];
   products: CatalogProduct[];
+  suppliers: Supplier[];
 }) {
   return (
     <Tabs defaultValue="orders">
@@ -403,6 +405,7 @@ function DataTables({
         <TabsTrigger value="orders">Orders ({orders.length})</TabsTrigger>
         <TabsTrigger value="supplies">Supplies ({supplies.length})</TabsTrigger>
         <TabsTrigger value="products">Products ({products.length})</TabsTrigger>
+        <TabsTrigger value="suppliers">Suppliers ({suppliers.length})</TabsTrigger>
       </TabsList>
 
       <TabsContent value="orders" className="mt-4">
@@ -413,6 +416,9 @@ function DataTables({
       </TabsContent>
       <TabsContent value="products" className="mt-4">
         <ProductsTable products={products} />
+      </TabsContent>
+      <TabsContent value="suppliers" className="mt-4">
+        <SuppliersManager createdBy="Admin" compact />
       </TabsContent>
     </Tabs>
   );
