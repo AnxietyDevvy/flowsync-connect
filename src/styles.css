@@ -212,3 +212,38 @@
     color: var(--color-foreground);
   }
 }
+
+@keyframes bubble-rise {
+  0% {
+    transform: translate(0, 110vh) scale(0.9);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate(var(--drift, 0px), 50vh) scale(1);
+  }
+  90% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translate(0, -20vh) scale(1.05);
+    opacity: 0;
+  }
+}
+
+.idle-bubble {
+  position: absolute;
+  bottom: 0;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at 30% 30%,
+    color-mix(in oklch, var(--primary) 45%, transparent),
+    color-mix(in oklch, var(--primary) 10%, transparent) 70%
+  );
+  border: 1px solid color-mix(in oklch, var(--primary) 30%, transparent);
+  pointer-events: none;
+  animation: bubble-rise linear infinite;
+  filter: blur(0.5px);
+}
