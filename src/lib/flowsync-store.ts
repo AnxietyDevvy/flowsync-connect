@@ -248,7 +248,10 @@ let bootstrapped = false;
 function ensureBootstrap() {
   if (bootstrapped || typeof window === "undefined") return;
   bootstrapped = true;
-  void loadAll();
+  void (async () => {
+    await ensureAnonSession();
+    await loadAll();
+  })();
   const channel = supabase
     .channel("flowsync")
     .on(
@@ -284,6 +287,20 @@ function ensureBootstrap() {
     .subscribe();
   // Channel intentionally lives for app lifetime.
   void channel;
+}
+
+// Suppliers and app_settings require an authenticated session (RLS).
+// Sign the visitor in anonymously so their JWT carries the `authenticated`
+// role; this replaces the raw `anon` API role without adding a login UX.
+async function ensureAnonSession() {
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) return;
+    const { error } = await supabase.auth.signInAnonymously();
+    if (error) console.error("anon sign-in", error);
+  } catch (e) {
+    console.error("ensureAnonSession", e);
+  }
 }
 
 async function loadAll() {

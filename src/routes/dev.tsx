@@ -130,11 +130,14 @@ function DevSettings() {
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <Card>
-        <CardContent className="space-y-4 py-4">
+        <CardContent className="space-y-3 py-4">
           <h3 className="text-lg font-semibold">Passwords</h3>
-          {(["office", "admin", "dev"] as const).map((k) => (
-            <PasswordEditor key={k} kind={k} current={String(settings[`${k}_password`] ?? "")} />
-          ))}
+          <p className="text-sm text-muted-foreground">
+            Section passwords are compiled into the app and are no longer stored in the
+            database. To change them, update the constants in
+            <code className="mx-1 rounded bg-muted px-1">src/lib/flowsync-store.ts</code>
+            (<code>OFFICE_PASSWORD</code>, <code>ADMIN_PASSWORD</code>, <code>DEV_PASSWORD</code>).
+          </p>
         </CardContent>
       </Card>
       <Card>
@@ -155,28 +158,6 @@ function DevSettings() {
           ))}
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-function PasswordEditor({ kind, current }: { kind: "office" | "admin" | "dev"; current: string }) {
-  const [val, setVal] = useState(current);
-  useEffect(() => setVal(current), [current]);
-  return (
-    <div className="flex items-end gap-2">
-      <div className="flex-1">
-        <Label className="capitalize">{kind} password</Label>
-        <Input value={val} onChange={(e) => setVal(e.target.value)} placeholder={`bpt-${kind}`} />
-      </div>
-      <Button
-        size="sm"
-        onClick={async () => {
-          await store.setSetting(`${kind}_password`, val.trim());
-          toast.success(`${kind} password updated`);
-        }}
-      >
-        Save
-      </Button>
     </div>
   );
 }
