@@ -568,6 +568,78 @@ export const store = {
     if (error) console.error("deleteSupplier", error);
     await refreshSuppliers();
   },
+
+  async sendToManufacturing(
+    supply: { id: string; name: string; notes?: string },
+    requestedBy: string,
+  ) {
+    const { error } = await supabase.from("manufacturing_requests" as never).insert({
+      supply_id: supply.id,
+      supply_name: supply.name,
+      notes: supply.notes ?? "",
+      status: "pending",
+      requested_by: requestedBy,
+    } as never);
+    if (error) console.error("sendToManufacturing", error);
+    await refreshManufacturing();
+  },
+  async startManufacturing(id: string, by: string) {
+    const { error } = await supabase
+      .from("manufacturing_requests" as never)
+      .update({
+        status: "in_progress",
+        started_by: by,
+        started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", id);
+    if (error) console.error("startManufacturing", error);
+    await refreshManufacturing();
+  },
+  async completeManufacturing(id: string, by: string) {
+    const { error } = await supabase
+      .from("manufacturing_requests" as never)
+      .update({
+        status: "completed",
+        completed_by: by,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", id);
+    if (error) console.error("completeManufacturing", error);
+    await refreshManufacturing();
+  },
+  async updateManufacturingStatus(id: string, status: ManufacturingStatus) {
+    const patch: {
+      status: ManufacturingStatus;
+      started_at?: string | null;
+      completed_at?: string | null;
+      updated_at: string;
+    } = { status, updated_at: new Date().toISOString() };
+    if (status === "pending") {
+      patch.started_at = null;
+      patch.completed_at = null;
+    } else if (status === "in_progress") {
+      patch.started_at = new Date().toISOString();
+      patch.completed_at = null;
+    } else if (status === "completed") {
+      patch.completed_at = new Date().toISOString();
+    }
+    const { error } = await supabase
+      .from("manufacturing_requests" as never)
+      .update(patch as never)
+      .eq("id", id);
+    if (error) console.error("updateManufacturingStatus", error);
+    await refreshManufacturing();
+  },
+  async deleteManufacturing(id: string) {
+    const { error } = await supabase
+      .from("manufacturing_requests" as never)
+      .delete()
+      .eq("id", id);
+    if (error) console.error("deleteManufacturing", error);
+    await refreshManufacturing();
+  },
 };
 
 export function nextOrderNumber(orders: Order[]) {
