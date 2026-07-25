@@ -18,7 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { AlertTriangle, Download, Upload, Lock, Trash2 } from "lucide-react";
 import { Overview, DataTables, ActivityLog } from "./admin";
 
-export const Route = createFileRoute("/dev")({
+export const Route = createFileRoute("/_gated/dev")({
   component: DevPage,
 });
 

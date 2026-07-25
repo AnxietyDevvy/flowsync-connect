@@ -32,7 +32,7 @@ import {
   type ManufacturingStatus,
 } from "@/lib/flowsync-store";
 
-export const Route = createFileRoute("/admin")({
+export const Route = createFileRoute("/_gated/admin")({
   head: () => ({
     meta: [
       { title: "Admin — FlowSync" },

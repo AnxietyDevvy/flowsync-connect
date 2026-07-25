@@ -22,7 +22,7 @@ import { ManufacturingPanel } from "@/components/flowsync/ManufacturingPanel";
 import { store, useFlowSync, type Order, type Supply } from "@/lib/flowsync-store";
 import { OrderStatusBadge, SupplyBadge, EmptyState, OrderView } from "./office";
 
-export const Route = createFileRoute("/production")({
+export const Route = createFileRoute("/_gated/production")({
   component: ProductionPage,
 });
 

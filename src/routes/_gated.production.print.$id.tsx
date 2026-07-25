@@ -4,7 +4,7 @@ import { Printer, ArrowLeft } from "lucide-react";
 import { BptLogo, FlowSyncLogo } from "@/components/flowsync/Logos";
 import { useFlowSync } from "@/lib/flowsync-store";
 
-export const Route = createFileRoute("/production/print/$id")({
+export const Route = createFileRoute("/_gated/production/print/$id")({
   component: PrintPage,
 });
 

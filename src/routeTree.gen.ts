@@ -9,180 +9,170 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ProductionRouteImport } from './routes/production'
-import { Route as OfficeRouteImport } from './routes/office'
-import { Route as DevRouteImport } from './routes/dev'
-import { Route as AdminRouteImport } from './routes/admin'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as ProductionPrintIdRouteImport } from './routes/production.print.$id'
+import { Route as GatedIndexRouteImport } from './routes/_gated.index'
+import { Route as GatedProductionRouteImport } from './routes/_gated.production'
+import { Route as GatedOfficeRouteImport } from './routes/_gated.office'
+import { Route as GatedDevRouteImport } from './routes/_gated.dev'
+import { Route as GatedAdminRouteImport } from './routes/_gated.admin'
+import { Route as GatedProductionPrintIdRouteImport } from './routes/_gated.production.print.$id'
 
-const ProductionRoute = ProductionRouteImport.update({
-  id: '/production',
-  path: '/production',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OfficeRoute = OfficeRouteImport.update({
-  id: '/office',
-  path: '/office',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DevRoute = DevRouteImport.update({
-  id: '/dev',
-  path: '/dev',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
+const GatedIndexRoute = GatedIndexRouteImport.update({
+  id: '/_gated/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProductionPrintIdRoute = ProductionPrintIdRouteImport.update({
+const GatedProductionRoute = GatedProductionRouteImport.update({
+  id: '/_gated/production',
+  path: '/production',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GatedOfficeRoute = GatedOfficeRouteImport.update({
+  id: '/_gated/office',
+  path: '/office',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GatedDevRoute = GatedDevRouteImport.update({
+  id: '/_gated/dev',
+  path: '/dev',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GatedAdminRoute = GatedAdminRouteImport.update({
+  id: '/_gated/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GatedProductionPrintIdRoute = GatedProductionPrintIdRouteImport.update({
   id: '/print/$id',
   path: '/print/$id',
-  getParentRoute: () => ProductionRoute,
+  getParentRoute: () => GatedProductionRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
-  '/dev': typeof DevRoute
-  '/office': typeof OfficeRoute
-  '/production': typeof ProductionRouteWithChildren
-  '/production/print/$id': typeof ProductionPrintIdRoute
+  '/admin': typeof GatedAdminRoute
+  '/dev': typeof GatedDevRoute
+  '/office': typeof GatedOfficeRoute
+  '/production': typeof GatedProductionRouteWithChildren
+  '/': typeof GatedIndexRoute
+  '/production/print/$id': typeof GatedProductionPrintIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
-  '/dev': typeof DevRoute
-  '/office': typeof OfficeRoute
-  '/production': typeof ProductionRouteWithChildren
-  '/production/print/$id': typeof ProductionPrintIdRoute
+  '/admin': typeof GatedAdminRoute
+  '/dev': typeof GatedDevRoute
+  '/office': typeof GatedOfficeRoute
+  '/production': typeof GatedProductionRouteWithChildren
+  '/': typeof GatedIndexRoute
+  '/production/print/$id': typeof GatedProductionPrintIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
-  '/dev': typeof DevRoute
-  '/office': typeof OfficeRoute
-  '/production': typeof ProductionRouteWithChildren
-  '/production/print/$id': typeof ProductionPrintIdRoute
+  '/_gated/admin': typeof GatedAdminRoute
+  '/_gated/dev': typeof GatedDevRoute
+  '/_gated/office': typeof GatedOfficeRoute
+  '/_gated/production': typeof GatedProductionRouteWithChildren
+  '/_gated/': typeof GatedIndexRoute
+  '/_gated/production/print/$id': typeof GatedProductionPrintIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/admin'
     | '/dev'
     | '/office'
     | '/production'
+    | '/'
     | '/production/print/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/admin'
     | '/dev'
     | '/office'
     | '/production'
+    | '/'
     | '/production/print/$id'
   id:
     | '__root__'
-    | '/'
-    | '/admin'
-    | '/dev'
-    | '/office'
-    | '/production'
-    | '/production/print/$id'
+    | '/_gated/admin'
+    | '/_gated/dev'
+    | '/_gated/office'
+    | '/_gated/production'
+    | '/_gated/'
+    | '/_gated/production/print/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
-  DevRoute: typeof DevRoute
-  OfficeRoute: typeof OfficeRoute
-  ProductionRoute: typeof ProductionRouteWithChildren
+  GatedAdminRoute: typeof GatedAdminRoute
+  GatedDevRoute: typeof GatedDevRoute
+  GatedOfficeRoute: typeof GatedOfficeRoute
+  GatedProductionRoute: typeof GatedProductionRouteWithChildren
+  GatedIndexRoute: typeof GatedIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/production': {
-      id: '/production'
-      path: '/production'
-      fullPath: '/production'
-      preLoaderRoute: typeof ProductionRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/office': {
-      id: '/office'
-      path: '/office'
-      fullPath: '/office'
-      preLoaderRoute: typeof OfficeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dev': {
-      id: '/dev'
-      path: '/dev'
-      fullPath: '/dev'
-      preLoaderRoute: typeof DevRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
+    '/_gated/': {
+      id: '/_gated/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof GatedIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/production/print/$id': {
-      id: '/production/print/$id'
+    '/_gated/production': {
+      id: '/_gated/production'
+      path: '/production'
+      fullPath: '/production'
+      preLoaderRoute: typeof GatedProductionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_gated/office': {
+      id: '/_gated/office'
+      path: '/office'
+      fullPath: '/office'
+      preLoaderRoute: typeof GatedOfficeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_gated/dev': {
+      id: '/_gated/dev'
+      path: '/dev'
+      fullPath: '/dev'
+      preLoaderRoute: typeof GatedDevRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_gated/admin': {
+      id: '/_gated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof GatedAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_gated/production/print/$id': {
+      id: '/_gated/production/print/$id'
       path: '/print/$id'
       fullPath: '/production/print/$id'
-      preLoaderRoute: typeof ProductionPrintIdRouteImport
-      parentRoute: typeof ProductionRoute
+      preLoaderRoute: typeof GatedProductionPrintIdRouteImport
+      parentRoute: typeof GatedProductionRoute
     }
   }
 }
 
-interface ProductionRouteChildren {
-  ProductionPrintIdRoute: typeof ProductionPrintIdRoute
+interface GatedProductionRouteChildren {
+  GatedProductionPrintIdRoute: typeof GatedProductionPrintIdRoute
 }
 
-const ProductionRouteChildren: ProductionRouteChildren = {
-  ProductionPrintIdRoute: ProductionPrintIdRoute,
+const GatedProductionRouteChildren: GatedProductionRouteChildren = {
+  GatedProductionPrintIdRoute: GatedProductionPrintIdRoute,
 }
 
-const ProductionRouteWithChildren = ProductionRoute._addFileChildren(
-  ProductionRouteChildren,
+const GatedProductionRouteWithChildren = GatedProductionRoute._addFileChildren(
+  GatedProductionRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
-  DevRoute: DevRoute,
-  OfficeRoute: OfficeRoute,
-  ProductionRoute: ProductionRouteWithChildren,
+  GatedAdminRoute: GatedAdminRoute,
+  GatedDevRoute: GatedDevRoute,
+  GatedOfficeRoute: GatedOfficeRoute,
+  GatedProductionRoute: GatedProductionRouteWithChildren,
+  GatedIndexRoute: GatedIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
