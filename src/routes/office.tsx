@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Send, Eye, Trash2, CheckCircle2 } from "lucide-react";
+import { Plus, Send, Eye, Trash2, CheckCircle2, Factory } from "lucide-react";
 import { SectionHeader } from "@/components/flowsync/SectionHeader";
 import { FlowSyncLogo } from "@/components/flowsync/Logos";
 import { OrderForm } from "@/components/flowsync/OrderForm";
@@ -305,6 +305,17 @@ function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void 
                           <CheckCircle2 className="mr-1 h-4 w-4" /> Mark noticed
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          store.sendToManufacturing(
+                            { id: s.id, name: s.name, notes: s.notes },
+                            userName,
+                          )
+                        }
+                      >
+                        <Factory className="mr-1 h-4 w-4" /> Send to Manufacturing
+                      </Button>
                     </CardContent>
                   </Card>
                 ))}

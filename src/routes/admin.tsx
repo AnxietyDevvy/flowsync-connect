@@ -1,6 +1,6 @@
 import { createFileRoute, Navigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Lock, Trash2, ShieldAlert, Package, ClipboardList, Boxes, Users, ArrowLeft } from "lucide-react";
+import { Lock, Trash2, ShieldAlert, Package, ClipboardList, Boxes, Users, ArrowLeft, Factory } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +27,8 @@ import {
   type Supply,
   type CatalogProduct,
   type Supplier,
+  type ManufacturingRequest,
+  type ManufacturingStatus,
 } from "@/lib/flowsync-store";
 
 export const Route = createFileRoute("/admin")({
@@ -131,7 +133,7 @@ function AdminGate({ onUnlock }: { onUnlock: () => void }) {
 }
 
 function AdminApp({ onLock }: { onLock: () => void }) {
-  const { orders, supplies, products, suppliers, loaded } = useFlowSync();
+  const { orders, supplies, products, suppliers, manufacturing, loaded } = useFlowSync();
 
   return (
     <div className="min-h-screen bg-background">
@@ -184,13 +186,25 @@ function AdminApp({ onLock }: { onLock: () => void }) {
             </TabsList>
 
             <TabsContent value="overview" className="mt-6">
-              <Overview orders={orders} supplies={supplies} products={products} suppliers={suppliers} />
+              <Overview
+                orders={orders}
+                supplies={supplies}
+                products={products}
+                suppliers={suppliers}
+                manufacturing={manufacturing}
+              />
             </TabsContent>
             <TabsContent value="data" className="mt-6">
               <div className="mb-4 flex justify-end">
                 <StockExport />
               </div>
-              <DataTables orders={orders} supplies={supplies} products={products} suppliers={suppliers} />
+              <DataTables
+                orders={orders}
+                supplies={supplies}
+                products={products}
+                suppliers={suppliers}
+                manufacturing={manufacturing}
+              />
             </TabsContent>
             <TabsContent value="activity" className="mt-6">
               <ActivityLog orders={orders} supplies={supplies} />
@@ -209,11 +223,13 @@ function Overview({
   supplies,
   products,
   suppliers,
+  manufacturing,
 }: {
   orders: Order[];
   supplies: Supply[];
   products: CatalogProduct[];
   suppliers: Supplier[];
+  manufacturing: ManufacturingRequest[];
 }) {
   const orderCounts = {
     total: orders.length,
@@ -337,6 +353,26 @@ function Overview({
       </section>
 
       <section>
+        <SectionTitle icon={<Factory className="h-4 w-4" />} title="Manufacturing" />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <StatCard label="Total" value={manufacturing.length} />
+          <StatCard
+            label="Pending"
+            value={manufacturing.filter((m) => m.status === "pending").length}
+            accent
+          />
+          <StatCard
+            label="In progress"
+            value={manufacturing.filter((m) => m.status === "in_progress").length}
+          />
+          <StatCard
+            label="Completed"
+            value={manufacturing.filter((m) => m.status === "completed").length}
+          />
+        </div>
+      </section>
+
+      <section>
         <SectionTitle icon={<ClipboardList className="h-4 w-4" />} title="Recent activity" />
         <Card>
           <CardContent className="py-2">
@@ -397,11 +433,13 @@ function DataTables({
   supplies,
   products,
   suppliers,
+  manufacturing,
 }: {
   orders: Order[];
   supplies: Supply[];
   products: CatalogProduct[];
   suppliers: Supplier[];
+  manufacturing: ManufacturingRequest[];
 }) {
   return (
     <Tabs defaultValue="orders">
@@ -410,6 +448,7 @@ function DataTables({
         <TabsTrigger value="supplies">Supplies ({supplies.length})</TabsTrigger>
         <TabsTrigger value="products">Products ({products.length})</TabsTrigger>
         <TabsTrigger value="suppliers">Suppliers ({suppliers.length})</TabsTrigger>
+        <TabsTrigger value="manufacturing">Manufacturing ({manufacturing.length})</TabsTrigger>
       </TabsList>
 
       <TabsContent value="orders" className="mt-4">
@@ -424,7 +463,73 @@ function DataTables({
       <TabsContent value="suppliers" className="mt-4">
         <SuppliersManager createdBy="Admin" compact />
       </TabsContent>
+      <TabsContent value="manufacturing" className="mt-4">
+        <ManufacturingTable requests={manufacturing} />
+      </TabsContent>
     </Tabs>
+  );
+}
+
+function ManufacturingTable({ requests }: { requests: ManufacturingRequest[] }) {
+  if (requests.length === 0) return <Empty text="No manufacturing requests." />;
+  return (
+    <div className="overflow-hidden rounded-lg border border-border">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2">Supply</th>
+            <th className="px-3 py-2">Requested by</th>
+            <th className="px-3 py-2">Started by</th>
+            <th className="px-3 py-2">Completed by</th>
+            <th className="px-3 py-2">Status</th>
+            <th className="px-3 py-2">Requested</th>
+            <th className="px-3 py-2 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {requests.map((m) => (
+            <tr key={m.id} className="hover:bg-muted/30">
+              <td className="px-3 py-2 font-medium">{m.supplyName}</td>
+              <td className="px-3 py-2">{m.requestedBy || "—"}</td>
+              <td className="px-3 py-2">{m.startedBy || "—"}</td>
+              <td className="px-3 py-2">{m.completedBy || "—"}</td>
+              <td className="px-3 py-2">
+                <Select
+                  value={m.status}
+                  onValueChange={(v) =>
+                    store.updateManufacturingStatus(m.id, v as ManufacturingStatus)
+                  }
+                >
+                  <SelectTrigger className="h-8 w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="in_progress">In progress</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </td>
+              <td className="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
+                {formatRelative(m.requestedAt)}
+              </td>
+              <td className="px-3 py-2 text-right">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => {
+                    if (confirm(`Delete manufacturing request for "${m.supplyName}"?`))
+                      store.deleteManufacturing(m.id);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

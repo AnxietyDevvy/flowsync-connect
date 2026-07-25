@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      manufacturing_requests: {
+        Row: {
+          completed_at: string | null
+          completed_by: string
+          created_at: string
+          id: string
+          notes: string
+          requested_at: string
+          requested_by: string
+          started_at: string | null
+          started_by: string
+          status: string
+          supply_id: string | null
+          supply_name: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string
+          created_at?: string
+          id?: string
+          notes?: string
+          requested_at?: string
+          requested_by?: string
+          started_at?: string | null
+          started_by?: string
+          status?: string
+          supply_id?: string | null
+          supply_name: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string
+          created_at?: string
+          id?: string
+          notes?: string
+          requested_at?: string
+          requested_by?: string
+          started_at?: string | null
+          started_by?: string
+          status?: string
+          supply_id?: string | null
+          supply_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           assigned_to: string

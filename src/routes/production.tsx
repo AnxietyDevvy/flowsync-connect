@@ -11,12 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Printer, CheckCircle2, Pencil, Trash2, Inbox, UserPlus } from "lucide-react";
+import { Plus, Printer, CheckCircle2, Pencil, Trash2, Inbox, UserPlus, Factory } from "lucide-react";
 import { SectionHeader } from "@/components/flowsync/SectionHeader";
 import { SupplyForm } from "@/components/flowsync/SupplyForm";
 import { PrintSheet } from "@/components/flowsync/PrintSheet";
 import { SuppliesImport } from "@/components/flowsync/SuppliesImport";
 import { StockExport } from "@/components/flowsync/StockExport";
+import { ManufacturingPanel } from "@/components/flowsync/ManufacturingPanel";
 import { store, useFlowSync, type Order, type Supply } from "@/lib/flowsync-store";
 import { OrderStatusBadge, SupplyBadge, EmptyState, OrderView } from "./office";
 
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/production")({
 });
 
 function ProductionPage() {
-  const { orders, supplies } = useFlowSync();
+  const { orders, supplies, manufacturing } = useFlowSync();
   const [viewing, setViewing] = useState<Order | null>(null);
   const [printing, setPrinting] = useState<Order | null>(null);
   const [supplyDialog, setSupplyDialog] = useState<{ open: boolean; edit?: Supply }>({
@@ -34,6 +35,7 @@ function ProductionPage() {
 
   const incoming = orders.filter((o) => o.status !== "draft");
   const pending = incoming.filter((o) => o.status === "sent").length;
+  const pendingMfg = manufacturing.filter((m) => m.status === "pending").length;
 
   useEffect(() => {
     if (!printing) return;
@@ -79,6 +81,14 @@ function ProductionPage() {
               )}
             </TabsTrigger>
             <TabsTrigger value="supplies">Supplies</TabsTrigger>
+            <TabsTrigger value="manufacturing" className="gap-2">
+              Manufacturing
+              {pendingMfg > 0 && (
+                <Badge variant="destructive" className="h-5 min-w-5 px-1.5">
+                  {pendingMfg}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="orders" className="mt-6">
@@ -173,6 +183,19 @@ function ProductionPage() {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="manufacturing" className="mt-6">
+            <div className="mb-4 flex items-center gap-3">
+              <Factory className="h-6 w-6 text-primary" />
+              <div>
+                <h2 className="text-2xl font-bold">Manufacturing</h2>
+                <p className="text-sm text-muted-foreground">
+                  Supplies the office has sent to be remade.
+                </p>
+              </div>
+            </div>
+            <ManufacturingPanel userName="Production" />
           </TabsContent>
         </Tabs>
       </main>
