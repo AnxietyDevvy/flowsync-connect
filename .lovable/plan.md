@@ -1,54 +1,37 @@
-## Hidden `/dev` section (just for you)
+## Site-wide password gate
 
-A new hidden route at `/dev`, protected by a password prompt (same pattern as `/admin`). Not linked anywhere in the UI — you just type the URL. Kept fully separate from `/admin`, which stays as-is for shared office use.
+Add a shared-password gate in front of the entire FlowSync app. One password unlocks the whole site for the current browser session; existing Office/Admin/Dev passwords stay as extra layers on top.
 
-### Password
-- `bpt-dev` (hardcoded like the Office/Admin passwords). Say the word if you'd like a different one.
-- Session unlock stored in `sessionStorage` (auto-locks when the browser closes), same as Office/Admin.
+### Behavior
+- First visit → `/unlock` page: FlowSync/BPT branding, single password input, "Enter" button.
+- Correct password → session cookie set, redirect to originally requested URL (or `/`).
+- Wrong password → generic "Incorrect password" message.
+- Persistence: session cookie only (cleared when browser closes).
+- Locked visitors cannot reach any route (landing, `/office`, `/production`, `/admin`, `/dev`, print routes) or any protected server data.
+- `/unlock` itself and `/api/*` public endpoints (if any added later) stay ungated.
 
-### What's inside — three tabs
+### Technical approach (uses the tanstack-shared-password-gate pattern)
+- New env vars (server-only, not `VITE_`-prefixed):
+  - `SITE_PASSWORD` — I'll ask you to enter it via a secure form (suggested value: `bpt-flowsync`, you can change it).
+  - `SESSION_SECRET` — auto-generated 32+ char random string to encrypt the session cookie.
+- New files:
+  - `src/lib/site-gate.functions.ts` — `unlockSite` (timing-safe compare + set session), `lockSite`, and a `requireUnlocked()` helper. Session cookie `httpOnly`, `secure`, `sameSite=lax`, no `maxAge` → cleared on browser close.
+  - `src/routes/unlock.tsx` — password form, calls `unlockSite`, navigates back to intended path.
+  - `src/routes/_gated.tsx` — pathless layout with `beforeLoad` that calls a `checkUnlocked` server fn and throws `redirect({ to: '/unlock', search: { redirect: location.href } })` when locked.
+- Move existing route files under the `_gated` layout by renaming:
+  - `index.tsx` → `_gated.index.tsx`
+  - `office.tsx` → `_gated.office.tsx`
+  - `production.tsx` → `_gated.production.tsx`
+  - `production.print.$id.tsx` → `_gated.production.print.$id.tsx`
+  - `admin.tsx` → `_gated.admin.tsx`
+  - `dev.tsx` → `_gated.dev.tsx`
+  - Route-string constants inside each file updated to include `/_gated/...`.
+- No changes to existing Office/Admin/Dev passwords, Supabase schema, or app data.
 
-**1. Dashboard (everything Admin has)**
-- Overview stats: orders, supplies, products, suppliers, manufacturing counts
-- Full data tables for orders, supplies, products, suppliers, manufacturing (status edit + delete)
-- User activity log
-- Basically a copy of the current `/admin` content so you have it in one place without cross-navigation
+### Out of scope
+- No per-user accounts or activity attribution changes.
+- No "remember me for X days" option (session-only per your choice).
+- No changes to what happens inside sections once unlocked.
 
-**2. Danger zone**
-- Wipe all draft orders
-- Wipe all completed orders
-- Wipe all completed manufacturing requests
-- Reset a table (Orders / Supplies / Products / Suppliers / Manufacturing) — hard delete every row
-- Export full database snapshot as a single JSON file (all tables)
-- Import snapshot back (restores all tables from a JSON file — with a scary confirm)
-- Every destructive action requires typing the table name (or `WIPE`) to confirm
-
-**3. App settings**
-- Edit the Office password, Admin password, and Dev password (stored in a new `app_settings` key/value table so changes stick across devices)
-- Seed default product catalog (re-inserts the original 28 ballistic products if missing)
-- Toggle feature flags: show/hide Manufacturing tab, show/hide Suppliers tab, allow Office to send-to-manufacturing (stored in `app_settings` and read by the store)
-
-### Technical section
-
-- **Route**: `src/routes/dev.tsx` — gate + tabbed layout, mirrors `admin.tsx` structure. Password check client-side, same as `/admin`.
-- **Store additions** (`src/lib/flowsync-store.ts`):
-  - `wipeOrdersByStatus(status)`, `wipeCompletedManufacturing()`, `resetTable(tableName)` — batch deletes via Supabase
-  - `exportSnapshot()` → downloads `flowsync-snapshot-<date>.json` containing all rows from all tables
-  - `importSnapshot(json)` → truncates + re-inserts each table
-  - `getAppSetting(key)` / `setAppSetting(key, value)` + realtime subscription so passwords/flags update live
-- **New table** `public.app_settings` (`key text primary key`, `value jsonb`, `updated_at`) with permissive anon RLS to match existing tables. Grants for anon + authenticated + service_role. Seeded with defaults for the three passwords and feature flags.
-- **Password source of truth**: `OFFICE_PASSWORD`, `ADMIN_PASSWORD`, `DEV_PASSWORD` in the store become fallbacks; the gates read the current values from `app_settings` first, then fall back to hardcoded defaults. This means changing a password in `/dev` propagates to everyone without a code change.
-- **Feature flags**: read once at Office/Production render time from `app_settings`; realtime sync updates the UI when you toggle them from `/dev`.
-- **No changes** to `/admin`, `/office`, `/production`, `/` — pure addition.
-
-### Files touched
-- `src/routes/dev.tsx` — new
-- `src/components/flowsync/DevDashboard.tsx`, `DevDangerZone.tsx`, `DevSettings.tsx` — new
-- `src/lib/flowsync-store.ts` — new methods + settings hook
-- `src/routes/office.tsx`, `src/routes/production.tsx` — read feature flags to hide/show tabs
-- Migration for `app_settings` table
-
-### Not included
-- No real login / accounts (per your choice of "Hidden URL + password")
-- Not linked from any menu — you access it only by typing `/dev`
-- `/admin` stays untouched
+### What I'll need from you during build
+- Confirm/enter the site password in the secure secret form when prompted (default suggestion: `bpt-flowsync`).

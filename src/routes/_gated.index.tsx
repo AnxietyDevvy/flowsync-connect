@@ -7,7 +7,7 @@ import { getUserPrefs, hasCompletedWelcome } from "@/lib/user-prefs";
 
 type IndexSearch = { prefs?: string };
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_gated/")({
   validateSearch: (search: Record<string, unknown>): IndexSearch => ({
     prefs: typeof search.prefs === "string" ? search.prefs : undefined,
   }),
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   const navigate = useNavigate();
-  const { prefs } = useSearch({ from: "/" });
+  const { prefs } = useSearch({ from: "/_gated/" });
   const [ready, setReady] = useState(false);
   const [mode, setMode] = useState<"welcome" | "chooser">("chooser");
 

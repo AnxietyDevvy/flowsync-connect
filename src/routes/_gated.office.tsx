@@ -34,7 +34,7 @@ import {
   type Order,
 } from "@/lib/flowsync-store";
 
-export const Route = createFileRoute("/office")({
+export const Route = createFileRoute("/_gated/office")({
   component: OfficePage,
 });
 
