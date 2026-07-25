@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Plus, Trash2, Search, ChevronDown, ChevronRight } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
+import { Plus, Trash2, Search, ChevronDown, ChevronRight, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -181,14 +181,7 @@ function ProductRow({
           )}
           <span className="min-w-0 truncate">{p.name}</span>
         </button>
-        <span
-          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-            low ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground"
-          }`}
-          title="Stock"
-        >
-          {p.stock}
-        </span>
+        <QuickStock product={p} low={low} />
         {p.isCustom ? (
           <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase text-secondary-foreground">
             Custom
