@@ -27,6 +27,8 @@ import {
   OFFICE_UNLOCK_KEY,
   getSavedOfficeName,
   setSavedOfficeName,
+  getEffectivePassword,
+  getSetting,
   store,
   useFlowSync,
   type Order,
@@ -89,7 +91,7 @@ function OfficeGate({
       setError("Enter your name");
       return;
     }
-    if (pw !== OFFICE_PASSWORD) {
+    if (pw !== getEffectivePassword("office") && pw !== OFFICE_PASSWORD) {
       setError("Incorrect password");
       return;
     }
