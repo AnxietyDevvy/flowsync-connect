@@ -11,6 +11,7 @@ export type Order = {
   notes: string;
   status: OrderStatus;
   createdBy: string;
+  assignedTo: string;
   createdAt: number;
   completedAt?: number;
 };
@@ -33,7 +34,12 @@ export type CatalogProduct = {
   name: string;
   category: string;
   isCustom: boolean;
+  stock: number;
+  lowStock: number;
+  materials: Material[];
 };
+
+export type Material = { name: string; quantity: string; unit: string };
 
 export type Supplier = {
   id: string;
@@ -88,6 +94,7 @@ type OrderRow = {
   notes: string | null;
   status: OrderStatus;
   created_by: string | null;
+  assigned_to: string | null;
   created_at: string;
   completed_at: string | null;
 };
@@ -100,6 +107,7 @@ function mapOrder(r: OrderRow): Order {
     notes: r.notes ?? "",
     status: r.status,
     createdBy: r.created_by ?? "",
+    assignedTo: r.assigned_to ?? "",
     createdAt: new Date(r.created_at).getTime(),
     completedAt: r.completed_at ? new Date(r.completed_at).getTime() : undefined,
   };
@@ -135,9 +143,20 @@ type ProductRow = {
   name: string;
   category: string;
   is_custom: boolean;
+  stock: number | null;
+  low_stock: number | null;
+  materials: Material[] | null;
 };
 function mapProduct(r: ProductRow): CatalogProduct {
-  return { id: r.id, name: r.name, category: r.category, isCustom: r.is_custom };
+  return {
+    id: r.id,
+    name: r.name,
+    category: r.category,
+    isCustom: r.is_custom,
+    stock: r.stock ?? 0,
+    lowStock: r.low_stock ?? 0,
+    materials: Array.isArray(r.materials) ? r.materials : [],
+  };
 }
 
 type SupplierRow = {
@@ -244,6 +263,7 @@ export const store = {
     products: Product[];
     notes: string;
     createdBy: string;
+    assignedTo?: string;
   }) {
     const { error } = await supabase.from("orders").insert({
       order_number: o.orderNumber,
@@ -252,6 +272,7 @@ export const store = {
       notes: o.notes,
       status: "draft",
       created_by: o.createdBy,
+      assigned_to: o.assignedTo ?? "",
     });
     if (error) console.error("addOrder", error);
     await refreshOrders();
@@ -267,6 +288,16 @@ export const store = {
       .update({ status: "sent", sent_at: new Date().toISOString() })
       .eq("id", id);
     if (error) console.error("sendOrder", error);
+    await decrementStockForOrder(id);
+    await refreshOrders();
+    await refreshProducts();
+  },
+  async assignOrder(id: string, assignedTo: string) {
+    const { error } = await supabase
+      .from("orders")
+      .update({ assigned_to: assignedTo })
+      .eq("id", id);
+    if (error) console.error("assignOrder", error);
     await refreshOrders();
   },
   async completeOrder(id: string) {
@@ -357,6 +388,26 @@ export const store = {
       .from("products")
       .insert({ name: trimmed, category: cat, is_custom: true });
     if (error) console.error("addProduct", error);
+    await refreshProducts();
+  },
+  async updateProduct(
+    id: string,
+    patch: Partial<Pick<CatalogProduct, "stock" | "lowStock" | "materials" | "name" | "category">>,
+  ) {
+    const row: {
+      stock?: number;
+      low_stock?: number;
+      materials?: Material[];
+      name?: string;
+      category?: string;
+    } = {};
+    if (patch.stock !== undefined) row.stock = patch.stock;
+    if (patch.lowStock !== undefined) row.low_stock = patch.lowStock;
+    if (patch.materials !== undefined) row.materials = patch.materials;
+    if (patch.name !== undefined) row.name = patch.name;
+    if (patch.category !== undefined) row.category = patch.category;
+    const { error } = await supabase.from("products").update(row).eq("id", id);
+    if (error) console.error("updateProduct", error);
     await refreshProducts();
   },
   async deleteProduct(id: string) {
