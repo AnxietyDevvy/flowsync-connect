@@ -254,6 +254,28 @@ async function refreshSuppliers() {
   setState({ suppliers: (data as SupplierRow[]).map(mapSupplier) });
 }
 
+// Decrement product stock levels for an order's line items.
+// Matches by product name (catalog is small; safe client-side).
+async function decrementStockForOrder(orderId: string) {
+  const order = state.orders.find((o) => o.id === orderId);
+  if (!order) return;
+  const byName = new Map(state.products.map((p) => [p.name, p]));
+  await Promise.all(
+    order.products.map(async (line) => {
+      const prod = byName.get(line.name);
+      if (!prod) return;
+      const qty = parseInt(line.quantity, 10);
+      if (!Number.isFinite(qty) || qty <= 0) return;
+      const newStock = (prod.stock ?? 0) - qty;
+      const { error } = await supabase
+        .from("products")
+        .update({ stock: newStock })
+        .eq("id", prod.id);
+      if (error) console.error("decrement stock", error);
+    }),
+  );
+}
+
 // --- Mutations (fire-and-forget; realtime brings truth back) ---
 
 export const store = {
