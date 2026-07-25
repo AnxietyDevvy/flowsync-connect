@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       orders: {
         Row: {
+          assigned_to: string
           completed_at: string | null
           created_at: string
           created_by: string
@@ -28,6 +29,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          assigned_to?: string
           completed_at?: string | null
           created_at?: string
           created_by?: string
@@ -40,6 +42,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          assigned_to?: string
           completed_at?: string | null
           created_at?: string
           created_by?: string
@@ -59,21 +62,30 @@ export type Database = {
           created_at: string
           id: string
           is_custom: boolean
+          low_stock: number
+          materials: Json
           name: string
+          stock: number
         }
         Insert: {
           category?: string
           created_at?: string
           id?: string
           is_custom?: boolean
+          low_stock?: number
+          materials?: Json
           name: string
+          stock?: number
         }
         Update: {
           category?: string
           created_at?: string
           id?: string
           is_custom?: boolean
+          low_stock?: number
+          materials?: Json
           name?: string
+          stock?: number
         }
         Relationships: []
       }

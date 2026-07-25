@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { FlowSyncLogo, BptLogo } from "@/components/flowsync/Logos";
 import { SuppliersManager } from "@/components/flowsync/SuppliersManager";
+import { StockExport } from "@/components/flowsync/StockExport";
 import {
   ADMIN_PASSWORD,
   ADMIN_UNLOCK_KEY,
@@ -186,6 +187,9 @@ function AdminApp({ onLock }: { onLock: () => void }) {
               <Overview orders={orders} supplies={supplies} products={products} suppliers={suppliers} />
             </TabsContent>
             <TabsContent value="data" className="mt-6">
+              <div className="mb-4 flex justify-end">
+                <StockExport />
+              </div>
               <DataTables orders={orders} supplies={supplies} products={products} suppliers={suppliers} />
             </TabsContent>
             <TabsContent value="activity" className="mt-6">
@@ -436,6 +440,7 @@ function OrdersTable({ orders }: { orders: Order[] }) {
             <th className="px-3 py-2">Order #</th>
             <th className="px-3 py-2">Date</th>
             <th className="px-3 py-2">Created by</th>
+            <th className="px-3 py-2">Assigned to</th>
             <th className="px-3 py-2">Products</th>
             <th className="px-3 py-2">Status</th>
             <th className="px-3 py-2 text-right">Actions</th>
@@ -472,6 +477,17 @@ function OrdersTable({ orders }: { orders: Order[] }) {
               </td>
               <td className="px-3 py-2 whitespace-nowrap">{o.date}</td>
               <td className="px-3 py-2">{o.createdBy || "—"}</td>
+              <td className="px-3 py-2">
+                <Input
+                  defaultValue={o.assignedTo}
+                  onBlur={(e) => {
+                    if (e.target.value !== o.assignedTo)
+                      store.assignOrder(o.id, e.target.value.trim());
+                  }}
+                  placeholder="—"
+                  className="h-8 w-32"
+                />
+              </td>
               <td className="px-3 py-2">{o.products.length}</td>
               <td className="px-3 py-2">
                 <Select
@@ -564,6 +580,9 @@ function ProductsTable({ products }: { products: CatalogProduct[] }) {
           <tr>
             <th className="px-3 py-2">Name</th>
             <th className="px-3 py-2">Category</th>
+            <th className="px-3 py-2">Stock</th>
+            <th className="px-3 py-2">Low at</th>
+            <th className="px-3 py-2">Materials</th>
             <th className="px-3 py-2">Type</th>
             <th className="px-3 py-2 text-right">Actions</th>
           </tr>
@@ -573,6 +592,35 @@ function ProductsTable({ products }: { products: CatalogProduct[] }) {
             <tr key={p.id} className="hover:bg-muted/30">
               <td className="px-3 py-2 font-medium">{p.name}</td>
               <td className="px-3 py-2">{p.category}</td>
+              <td className="px-3 py-2">
+                <Input
+                  type="number"
+                  defaultValue={p.stock}
+                  onBlur={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (Number.isFinite(v) && v !== p.stock)
+                      store.updateProduct(p.id, { stock: v });
+                  }}
+                  className="h-8 w-20"
+                />
+              </td>
+              <td className="px-3 py-2">
+                <Input
+                  type="number"
+                  defaultValue={p.lowStock}
+                  onBlur={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (Number.isFinite(v) && v !== p.lowStock)
+                      store.updateProduct(p.id, { lowStock: v });
+                  }}
+                  className="h-8 w-20"
+                />
+              </td>
+              <td className="px-3 py-2 text-xs text-muted-foreground">
+                {(p.materials ?? []).length === 0
+                  ? "—"
+                  : `${p.materials.length} item${p.materials.length === 1 ? "" : "s"}`}
+              </td>
               <td className="px-3 py-2">
                 {p.isCustom ? (
                   <Badge variant="outline">Custom</Badge>
