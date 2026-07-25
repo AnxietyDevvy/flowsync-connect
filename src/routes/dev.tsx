@@ -74,14 +74,7 @@ function DevApp({ onLock }: { onLock: () => void }) {
   const { orders, supplies, products, suppliers, manufacturing } = useFlowSync();
   return (
     <div className="min-h-screen bg-background">
-      <SectionHeader
-        label="Dev"
-        right={
-          <Button variant="outline" size="sm" onClick={onLock}>
-            <Lock className="mr-1 h-4 w-4" /> Lock
-          </Button>
-        }
-      />
+      <SectionHeader label="Dev" onLock={onLock} />
       <main className="mx-auto max-w-7xl px-6 py-8">
         <Tabs defaultValue="dashboard">
           <TabsList>
