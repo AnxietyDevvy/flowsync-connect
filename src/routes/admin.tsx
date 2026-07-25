@@ -22,6 +22,7 @@ import {
   ADMIN_UNLOCK_KEY,
   store,
   useFlowSync,
+  getEffectivePassword,
   type Order,
   type OrderStatus,
   type Supply,
@@ -72,7 +73,7 @@ function AdminGate({ onUnlock }: { onUnlock: () => void }) {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pw !== ADMIN_PASSWORD) {
+    if (pw !== getEffectivePassword("admin") && pw !== ADMIN_PASSWORD) {
       setError("Incorrect password");
       return;
     }
@@ -218,7 +219,7 @@ function AdminApp({ onLock }: { onLock: () => void }) {
 
 // ============= Overview =============
 
-function Overview({
+export function Overview({
   orders,
   supplies,
   products,
@@ -428,7 +429,7 @@ function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string })
 
 // ============= Data tables =============
 
-function DataTables({
+export function DataTables({
   orders,
   supplies,
   products,
@@ -776,7 +777,7 @@ function Empty({ text }: { text: string }) {
 
 // ============= Activity log =============
 
-function ActivityLog({ orders, supplies }: { orders: Order[]; supplies: Supply[] }) {
+export function ActivityLog({ orders, supplies }: { orders: Order[]; supplies: Supply[] }) {
   const [filter, setFilter] = useState("");
 
   type Event = { when: number; user: string; kind: string; text: string };
