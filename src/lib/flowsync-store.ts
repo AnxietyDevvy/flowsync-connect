@@ -35,14 +35,25 @@ export type CatalogProduct = {
   isCustom: boolean;
 };
 
+export type Supplier = {
+  id: string;
+  name: string;
+  email: string;
+  website: string;
+  notes: string;
+  createdBy: string;
+  updatedAt: number;
+};
+
 type State = {
   orders: Order[];
   supplies: Supply[];
   products: CatalogProduct[];
+  suppliers: Supplier[];
   loaded: boolean;
 };
 
-let state: State = { orders: [], supplies: [], products: [], loaded: false };
+let state: State = { orders: [], supplies: [], products: [], suppliers: [], loaded: false };
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -63,7 +74,7 @@ export function useFlowSync() {
   return useSyncExternalStore(
     subscribe,
     () => state,
-    () => ({ orders: [], supplies: [], products: [], loaded: false }),
+    () => ({ orders: [], supplies: [], products: [], suppliers: [], loaded: false }),
   );
 }
 
@@ -129,6 +140,27 @@ function mapProduct(r: ProductRow): CatalogProduct {
   return { id: r.id, name: r.name, category: r.category, isCustom: r.is_custom };
 }
 
+type SupplierRow = {
+  id: string;
+  name: string;
+  email: string | null;
+  website: string | null;
+  notes: string | null;
+  created_by: string | null;
+  updated_at: string;
+};
+function mapSupplier(r: SupplierRow): Supplier {
+  return {
+    id: r.id,
+    name: r.name,
+    email: r.email ?? "",
+    website: r.website ?? "",
+    notes: r.notes ?? "",
+    createdBy: r.created_by ?? "",
+    updatedAt: new Date(r.updated_at).getTime(),
+  };
+}
+
 // --- Bootstrap: initial fetch + realtime ---
 
 let bootstrapped = false;
@@ -153,13 +185,18 @@ function ensureBootstrap() {
       { event: "*", schema: "public", table: "products" },
       () => refreshProducts(),
     )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "suppliers" },
+      () => refreshSuppliers(),
+    )
     .subscribe();
   // Channel intentionally lives for app lifetime.
   void channel;
 }
 
 async function loadAll() {
-  await Promise.all([refreshOrders(), refreshSupplies(), refreshProducts()]);
+  await Promise.all([refreshOrders(), refreshSupplies(), refreshProducts(), refreshSuppliers()]);
   setState({ loaded: true });
 }
 
@@ -187,6 +224,15 @@ async function refreshProducts() {
     .order("name");
   if (error) return console.error("products load", error);
   setState({ products: (data as ProductRow[]).map(mapProduct) });
+}
+
+async function refreshSuppliers() {
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select("*")
+    .order("name");
+  if (error) return console.error("suppliers load", error);
+  setState({ suppliers: (data as SupplierRow[]).map(mapSupplier) });
 }
 
 // --- Mutations (fire-and-forget; realtime brings truth back) ---
@@ -325,6 +371,48 @@ export const store = {
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) console.error("forceDeleteProduct", error);
     await refreshProducts();
+  },
+
+  async addSupplier(s: {
+    name: string;
+    email: string;
+    website: string;
+    notes: string;
+    createdBy: string;
+  }) {
+    const { error } = await supabase.from("suppliers").insert({
+      name: s.name,
+      email: s.email,
+      website: s.website,
+      notes: s.notes,
+      created_by: s.createdBy,
+    });
+    if (error) console.error("addSupplier", error);
+    await refreshSuppliers();
+  },
+  async updateSupplier(
+    id: string,
+    patch: Partial<Omit<Supplier, "id" | "updatedAt" | "createdBy">>,
+  ) {
+    const row: {
+      updated_at: string;
+      name?: string;
+      email?: string;
+      website?: string;
+      notes?: string;
+    } = { updated_at: new Date().toISOString() };
+    if (patch.name !== undefined) row.name = patch.name;
+    if (patch.email !== undefined) row.email = patch.email;
+    if (patch.website !== undefined) row.website = patch.website;
+    if (patch.notes !== undefined) row.notes = patch.notes;
+    const { error } = await supabase.from("suppliers").update(row).eq("id", id);
+    if (error) console.error("updateSupplier", error);
+    await refreshSuppliers();
+  },
+  async deleteSupplier(id: string) {
+    const { error } = await supabase.from("suppliers").delete().eq("id", id);
+    if (error) console.error("deleteSupplier", error);
+    await refreshSuppliers();
   },
 };
 

@@ -20,6 +20,7 @@ import { FlowSyncLogo } from "@/components/flowsync/Logos";
 import { OrderForm } from "@/components/flowsync/OrderForm";
 import { ProductsManager } from "@/components/flowsync/ProductsManager";
 import { SuppliesImport } from "@/components/flowsync/SuppliesImport";
+import { SuppliersManager } from "@/components/flowsync/SuppliersManager";
 import {
   OFFICE_PASSWORD,
   OFFICE_UNLOCK_KEY,
@@ -179,6 +180,7 @@ function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void 
           <TabsList>
             <TabsTrigger value="orders">Package orders</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
+            <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
             <TabsTrigger value="supplies" className="gap-2">
               Supplies
               {newSupplies > 0 && (
@@ -244,6 +246,16 @@ function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void 
               </p>
             </div>
             <ProductsManager />
+          </TabsContent>
+
+          <TabsContent value="suppliers" className="mt-6">
+            <div className="mb-4">
+              <h2 className="text-2xl font-bold">Suppliers</h2>
+              <p className="text-sm text-muted-foreground">
+                Keep supplier contacts (email, website) in one shared place.
+              </p>
+            </div>
+            <SuppliersManager createdBy={userName} />
           </TabsContent>
 
           <TabsContent value="supplies" className="mt-6">

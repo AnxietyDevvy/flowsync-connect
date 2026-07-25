@@ -77,6 +77,39 @@ export type Database = {
         }
         Relationships: []
       }
+      suppliers: {
+        Row: {
+          created_at: string
+          created_by: string
+          email: string
+          id: string
+          name: string
+          notes: string
+          updated_at: string
+          website: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          email?: string
+          id?: string
+          name: string
+          notes?: string
+          updated_at?: string
+          website?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          email?: string
+          id?: string
+          name?: string
+          notes?: string
+          updated_at?: string
+          website?: string
+        }
+        Relationships: []
+      }
       supplies: {
         Row: {
           created_at: string
