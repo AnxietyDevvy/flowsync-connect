@@ -72,6 +72,7 @@ type State = {
   products: CatalogProduct[];
   suppliers: Supplier[];
   manufacturing: ManufacturingRequest[];
+  settings: Record<string, unknown>;
   loaded: boolean;
 };
 
@@ -81,6 +82,7 @@ let state: State = {
   products: [],
   suppliers: [],
   manufacturing: [],
+  settings: {},
   loaded: false,
 };
 const listeners = new Set<() => void>();
@@ -109,6 +111,7 @@ export function useFlowSync() {
       products: [],
       suppliers: [],
       manufacturing: [],
+      settings: {},
       loaded: false,
     }),
   );
@@ -273,6 +276,11 @@ function ensureBootstrap() {
       { event: "*", schema: "public", table: "manufacturing_requests" },
       () => refreshManufacturing(),
     )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "app_settings" },
+      () => refreshSettings(),
+    )
     .subscribe();
   // Channel intentionally lives for app lifetime.
   void channel;
@@ -285,6 +293,7 @@ async function loadAll() {
     refreshProducts(),
     refreshSuppliers(),
     refreshManufacturing(),
+    refreshSettings(),
   ]);
   setState({ loaded: true });
 }
@@ -333,6 +342,18 @@ async function refreshManufacturing() {
   setState({
     manufacturing: (data as unknown as ManufacturingRow[]).map(mapManufacturing),
   });
+}
+
+async function refreshSettings() {
+  const { data, error } = await supabase
+    .from("app_settings" as never)
+    .select("*");
+  if (error) return console.error("settings load", error);
+  const map: Record<string, unknown> = {};
+  for (const row of (data as unknown as { key: string; value: unknown }[]) ?? []) {
+    map[row.key] = row.value;
+  }
+  setState({ settings: map });
 }
 
 // Decrement product stock levels for an order's line items.
