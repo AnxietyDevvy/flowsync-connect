@@ -314,3 +314,53 @@ function ProductEditor({ product: p }: { product: CatalogProduct }) {
     </div>
   );
 }
+
+function QuickStock({ product: p, low }: { product: CatalogProduct; low: boolean }) {
+  const [val, setVal] = useState(String(p.stock));
+  useEffect(() => setVal(String(p.stock)), [p.stock]);
+
+  const commit = (n: number) => {
+    const clean = Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
+    setVal(String(clean));
+    if (clean !== p.stock) store.updateProduct(p.id, { stock: clean });
+  };
+
+  return (
+    <div
+      className="flex shrink-0 items-center gap-0.5 rounded border border-border bg-background"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        aria-label="Decrease stock"
+        className="flex h-6 w-6 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40"
+        disabled={p.stock <= 0}
+        onClick={() => commit(p.stock - 1)}
+      >
+        <Minus className="h-3 w-3" />
+      </button>
+      <input
+        type="number"
+        min={0}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={() => commit(parseInt(val, 10))}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        title="Stock"
+        className={`h-6 w-10 border-x border-border bg-transparent text-center text-xs font-semibold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
+          low ? "text-amber-700" : ""
+        }`}
+      />
+      <button
+        type="button"
+        aria-label="Increase stock"
+        className="flex h-6 w-6 items-center justify-center text-muted-foreground hover:text-foreground"
+        onClick={() => commit(p.stock + 1)}
+      >
+        <Plus className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
