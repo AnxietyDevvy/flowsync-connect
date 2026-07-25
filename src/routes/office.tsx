@@ -206,7 +206,7 @@ function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void 
                     <Plus className="mr-1 h-4 w-4" /> New order
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>New package order</DialogTitle>
                   </DialogHeader>
