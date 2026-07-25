@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FlowSyncLogo, BptLogo } from "@/components/flowsync/Logos";
+import { SuppliersManager } from "@/components/flowsync/SuppliersManager";
 import {
   ADMIN_PASSWORD,
   ADMIN_UNLOCK_KEY,
@@ -24,6 +25,7 @@ import {
   type OrderStatus,
   type Supply,
   type CatalogProduct,
+  type Supplier,
 } from "@/lib/flowsync-store";
 
 export const Route = createFileRoute("/admin")({
@@ -128,7 +130,7 @@ function AdminGate({ onUnlock }: { onUnlock: () => void }) {
 }
 
 function AdminApp({ onLock }: { onLock: () => void }) {
-  const { orders, supplies, products, loaded } = useFlowSync();
+  const { orders, supplies, products, suppliers, loaded } = useFlowSync();
 
   return (
     <div className="min-h-screen bg-background">
@@ -181,10 +183,10 @@ function AdminApp({ onLock }: { onLock: () => void }) {
             </TabsList>
 
             <TabsContent value="overview" className="mt-6">
-              <Overview orders={orders} supplies={supplies} products={products} />
+              <Overview orders={orders} supplies={supplies} products={products} suppliers={suppliers} />
             </TabsContent>
             <TabsContent value="data" className="mt-6">
-              <DataTables orders={orders} supplies={supplies} products={products} />
+              <DataTables orders={orders} supplies={supplies} products={products} suppliers={suppliers} />
             </TabsContent>
             <TabsContent value="activity" className="mt-6">
               <ActivityLog orders={orders} supplies={supplies} />
@@ -202,10 +204,12 @@ function Overview({
   orders,
   supplies,
   products,
+  suppliers,
 }: {
   orders: Order[];
   supplies: Supply[];
   products: CatalogProduct[];
+  suppliers: Supplier[];
 }) {
   const orderCounts = {
     total: orders.length,
@@ -306,6 +310,25 @@ function Overview({
               </div>
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      <section>
+        <SectionTitle icon={<Users className="h-4 w-4" />} title="Suppliers" />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <StatCard label="Total" value={suppliers.length} />
+          <StatCard
+            label="With email"
+            value={suppliers.filter((s) => s.email).length}
+          />
+          <StatCard
+            label="With website"
+            value={suppliers.filter((s) => s.website).length}
+          />
+          <StatCard
+            label="No contact"
+            value={suppliers.filter((s) => !s.email && !s.website).length}
+          />
         </div>
       </section>
 
