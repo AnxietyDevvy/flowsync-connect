@@ -51,15 +51,38 @@ export type Supplier = {
   updatedAt: number;
 };
 
+export type ManufacturingStatus = "pending" | "in_progress" | "completed";
+export type ManufacturingRequest = {
+  id: string;
+  supplyId: string | null;
+  supplyName: string;
+  notes: string;
+  status: ManufacturingStatus;
+  requestedBy: string;
+  requestedAt: number;
+  startedBy: string;
+  startedAt?: number;
+  completedBy: string;
+  completedAt?: number;
+};
+
 type State = {
   orders: Order[];
   supplies: Supply[];
   products: CatalogProduct[];
   suppliers: Supplier[];
+  manufacturing: ManufacturingRequest[];
   loaded: boolean;
 };
 
-let state: State = { orders: [], supplies: [], products: [], suppliers: [], loaded: false };
+let state: State = {
+  orders: [],
+  supplies: [],
+  products: [],
+  suppliers: [],
+  manufacturing: [],
+  loaded: false,
+};
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -80,7 +103,14 @@ export function useFlowSync() {
   return useSyncExternalStore(
     subscribe,
     () => state,
-    () => ({ orders: [], supplies: [], products: [], suppliers: [], loaded: false }),
+    () => ({
+      orders: [],
+      supplies: [],
+      products: [],
+      suppliers: [],
+      manufacturing: [],
+      loaded: false,
+    }),
   );
 }
 
@@ -180,6 +210,35 @@ function mapSupplier(r: SupplierRow): Supplier {
   };
 }
 
+type ManufacturingRow = {
+  id: string;
+  supply_id: string | null;
+  supply_name: string;
+  notes: string | null;
+  status: ManufacturingStatus;
+  requested_by: string | null;
+  requested_at: string;
+  started_by: string | null;
+  started_at: string | null;
+  completed_by: string | null;
+  completed_at: string | null;
+};
+function mapManufacturing(r: ManufacturingRow): ManufacturingRequest {
+  return {
+    id: r.id,
+    supplyId: r.supply_id,
+    supplyName: r.supply_name,
+    notes: r.notes ?? "",
+    status: r.status,
+    requestedBy: r.requested_by ?? "",
+    requestedAt: new Date(r.requested_at).getTime(),
+    startedBy: r.started_by ?? "",
+    startedAt: r.started_at ? new Date(r.started_at).getTime() : undefined,
+    completedBy: r.completed_by ?? "",
+    completedAt: r.completed_at ? new Date(r.completed_at).getTime() : undefined,
+  };
+}
+
 // --- Bootstrap: initial fetch + realtime ---
 
 let bootstrapped = false;
@@ -209,13 +268,24 @@ function ensureBootstrap() {
       { event: "*", schema: "public", table: "suppliers" },
       () => refreshSuppliers(),
     )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "manufacturing_requests" },
+      () => refreshManufacturing(),
+    )
     .subscribe();
   // Channel intentionally lives for app lifetime.
   void channel;
 }
 
 async function loadAll() {
-  await Promise.all([refreshOrders(), refreshSupplies(), refreshProducts(), refreshSuppliers()]);
+  await Promise.all([
+    refreshOrders(),
+    refreshSupplies(),
+    refreshProducts(),
+    refreshSuppliers(),
+    refreshManufacturing(),
+  ]);
   setState({ loaded: true });
 }
 
@@ -252,6 +322,17 @@ async function refreshSuppliers() {
     .order("name");
   if (error) return console.error("suppliers load", error);
   setState({ suppliers: (data as SupplierRow[]).map(mapSupplier) });
+}
+
+async function refreshManufacturing() {
+  const { data, error } = await supabase
+    .from("manufacturing_requests" as never)
+    .select("*")
+    .order("requested_at", { ascending: false });
+  if (error) return console.error("manufacturing load", error);
+  setState({
+    manufacturing: (data as unknown as ManufacturingRow[]).map(mapManufacturing),
+  });
 }
 
 // Decrement product stock levels for an order's line items.
