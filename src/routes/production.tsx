@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Printer, CheckCircle2, Pencil, Trash2, Inbox, UserPlus, Factory } from "lucide-react";
+import { Plus, Printer, CheckCircle2, Pencil, Trash2, Inbox, UserPlus, Factory, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { SectionHeader } from "@/components/flowsync/SectionHeader";
 import { SupplyForm } from "@/components/flowsync/SupplyForm";
 import { PrintSheet } from "@/components/flowsync/PrintSheet";
@@ -31,6 +32,16 @@ function ProductionPage() {
   const [printing, setPrinting] = useState<Order | null>(null);
   const [supplyDialog, setSupplyDialog] = useState<{ open: boolean; edit?: Supply }>({
     open: false,
+  });
+  const [supplyQuery, setSupplyQuery] = useState("");
+  const filteredSupplies = supplies.filter((s) => {
+    const q = supplyQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      s.name.toLowerCase().includes(q) ||
+      s.notes.toLowerCase().includes(q) ||
+      s.status.toLowerCase().includes(q)
+    );
   });
 
   const incoming = orders.filter((o) => o.status !== "draft");
@@ -147,8 +158,23 @@ function ProductionPage() {
                 description="Add your first supply record."
               />
             ) : (
-              <div className="grid gap-3">
-                {supplies.map((s) => (
+              <>
+                <div className="relative mb-3">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search supplies…"
+                    value={supplyQuery}
+                    onChange={(e) => setSupplyQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                {filteredSupplies.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
+                    No supplies match "{supplyQuery}"
+                  </div>
+                ) : (
+                <div className="grid gap-3">
+                {filteredSupplies.map((s) => (
                   <Card key={s.id}>
                     <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
                       <div className="min-w-0 flex-1">
@@ -181,7 +207,9 @@ function ProductionPage() {
                     </CardContent>
                   </Card>
                 ))}
-              </div>
+                </div>
+                )}
+              </>
             )}
           </TabsContent>
 

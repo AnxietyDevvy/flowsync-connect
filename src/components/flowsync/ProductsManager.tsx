@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Plus, Trash2, Search, ChevronDown, ChevronRight } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
+import { Plus, Trash2, Search, ChevronDown, ChevronRight, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -181,14 +181,7 @@ function ProductRow({
           )}
           <span className="min-w-0 truncate">{p.name}</span>
         </button>
-        <span
-          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-            low ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground"
-          }`}
-          title="Stock"
-        >
-          {p.stock}
-        </span>
+        <QuickStock product={p} low={low} />
         {p.isCustom ? (
           <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase text-secondary-foreground">
             Custom
@@ -318,6 +311,56 @@ function ProductEditor({ product: p }: { product: CatalogProduct }) {
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function QuickStock({ product: p, low }: { product: CatalogProduct; low: boolean }) {
+  const [val, setVal] = useState(String(p.stock));
+  useEffect(() => setVal(String(p.stock)), [p.stock]);
+
+  const commit = (n: number) => {
+    const clean = Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
+    setVal(String(clean));
+    if (clean !== p.stock) store.updateProduct(p.id, { stock: clean });
+  };
+
+  return (
+    <div
+      className="flex shrink-0 items-center gap-0.5 rounded border border-border bg-background"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        aria-label="Decrease stock"
+        className="flex h-6 w-6 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40"
+        disabled={p.stock <= 0}
+        onClick={() => commit(p.stock - 1)}
+      >
+        <Minus className="h-3 w-3" />
+      </button>
+      <input
+        type="number"
+        min={0}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={() => commit(parseInt(val, 10))}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        title="Stock"
+        className={`h-6 w-10 border-x border-border bg-transparent text-center text-xs font-semibold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
+          low ? "text-amber-700" : ""
+        }`}
+      />
+      <button
+        type="button"
+        aria-label="Increase stock"
+        className="flex h-6 w-6 items-center justify-center text-muted-foreground hover:text-foreground"
+        onClick={() => commit(p.stock + 1)}
+      >
+        <Plus className="h-3 w-3" />
+      </button>
     </div>
   );
 }
