@@ -16,7 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { AlertTriangle, Download, Upload, Lock, Trash2 } from "lucide-react";
-import { Overview, DataTables, ActivityLog } from "./admin";
+import { Overview, DataTables, ActivityLog } from "./_gated.admin";
 
 export const Route = createFileRoute("/_gated/dev")({
   component: DevPage,

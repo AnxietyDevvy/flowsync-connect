@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_gated/")({
 
 function Landing() {
   const navigate = useNavigate();
-  const { prefs } = useSearch({ from: "/" });
+  const { prefs } = useSearch({ from: "/_gated/" });
   const [ready, setReady] = useState(false);
   const [mode, setMode] = useState<"welcome" | "chooser">("chooser");
 
