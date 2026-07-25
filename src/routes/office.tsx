@@ -21,6 +21,7 @@ import { OrderForm } from "@/components/flowsync/OrderForm";
 import { ProductsManager } from "@/components/flowsync/ProductsManager";
 import { SuppliesImport } from "@/components/flowsync/SuppliesImport";
 import { SuppliersManager } from "@/components/flowsync/SuppliersManager";
+import { StockExport } from "@/components/flowsync/StockExport";
 import {
   OFFICE_PASSWORD,
   OFFICE_UNLOCK_KEY,
@@ -266,7 +267,10 @@ function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void 
                   Mark items as noticed, or import a spreadsheet to update stock levels.
                 </p>
               </div>
-              <SuppliesImport importedBy={userName} />
+              <div className="flex gap-2">
+                <StockExport />
+                <SuppliesImport importedBy={userName} />
+              </div>
             </div>
             {supplies.length === 0 ? (
               <EmptyState
@@ -342,6 +346,7 @@ function OrderCard({
             {order.date} · {order.products.length} product
             {order.products.length !== 1 ? "s" : ""}
             {order.createdBy && ` · by ${order.createdBy}`}
+            {order.assignedTo && ` · assigned to ${order.assignedTo}`}
           </div>
         </div>
         <div className="flex gap-2">

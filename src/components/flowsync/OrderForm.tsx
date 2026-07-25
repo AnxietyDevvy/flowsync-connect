@@ -1,9 +1,14 @@
 import { useMemo, useState } from "react";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   store,
   nextOrderNumber,
@@ -31,6 +36,7 @@ export function OrderForm({
   const [notes, setNotes] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
 
   const grouped = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -58,7 +64,14 @@ export function OrderForm({
   const handleCreate = async (send: boolean) => {
     const cleaned = products.filter((p) => p.name.trim() && p.quantity.trim());
     if (!orderNumber.trim() || cleaned.length === 0) return;
-    await store.addOrder({ orderNumber, date, notes, products: cleaned, createdBy });
+    await store.addOrder({
+      orderNumber,
+      date,
+      notes,
+      products: cleaned,
+      createdBy,
+      assignedTo,
+    });
     if (send) {
       // After insert + refresh, find the row by its unique order number.
       const { supabase } = await import("@/integrations/supabase/client");
@@ -73,6 +86,21 @@ export function OrderForm({
     }
     onDone();
   };
+
+  const catalogByName = useMemo(
+    () => new Map(catalog.map((p) => [p.name, p])),
+    [catalog],
+  );
+
+  const stockWarnings = products
+    .map((p) => {
+      const cat = catalogByName.get(p.name);
+      const qty = parseInt(p.quantity, 10);
+      if (!cat || !Number.isFinite(qty) || qty <= 0) return null;
+      if (qty > (cat.stock ?? 0)) return `${p.name}: only ${cat.stock} in stock`;
+      return null;
+    })
+    .filter((x): x is string => x !== null);
 
   return (
     <div className="space-y-5">
@@ -94,6 +122,16 @@ export function OrderForm({
             onChange={(e) => setDate(e.target.value)}
           />
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="assign">Assign to worker (optional)</Label>
+        <Input
+          id="assign"
+          value={assignedTo}
+          onChange={(e) => setAssignedTo(e.target.value)}
+          placeholder="e.g. Mark"
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -129,7 +167,19 @@ export function OrderForm({
                         disabled={added}
                         className="flex w-full items-center justify-between border-b border-border px-3 py-2 text-left text-sm last:border-b-0 hover:bg-muted disabled:opacity-50"
                       >
-                        <span className="truncate pr-2">{p.name}</span>
+                        <span className="min-w-0 flex-1 truncate pr-2">{p.name}</span>
+                        <span
+                          className={`mr-2 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                            p.stock <= 0
+                              ? "bg-primary/15 text-primary"
+                              : p.stock <= (p.lowStock ?? 0)
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-muted text-muted-foreground"
+                          }`}
+                          title="Current stock"
+                        >
+                          {p.stock}
+                        </span>
                         {added ? (
                           <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                             Added
@@ -157,36 +207,91 @@ export function OrderForm({
                 Pick products from the catalog to add them to this order.
               </div>
             ) : (
-              products.map((p, i) => (
-                <div
-                  key={p.id}
-                  className="flex items-center gap-2 border-b border-border px-2 py-2 last:border-b-0"
-                >
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-muted text-xs font-semibold text-muted-foreground">
-                    {i + 1}
-                  </div>
-                  <div className="min-w-0 flex-1 text-sm">{p.name}</div>
-                  <Input
-                    aria-label="Quantity"
-                    value={p.quantity}
-                    onChange={(e) => setQty(p.id, e.target.value)}
-                    className="h-8 w-16 text-center"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => remove(p.id)}
+              products.map((p, i) => {
+                const cat = catalogByName.get(p.name);
+                const materials = cat?.materials ?? [];
+                return (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-2 border-b border-border px-2 py-2 last:border-b-0"
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-muted text-xs font-semibold text-muted-foreground">
+                      {i + 1}
+                    </div>
+                    <div className="min-w-0 flex-1 text-sm">
+                      {p.name}
+                      {cat && (
+                        <span className="ml-2 text-[10px] text-muted-foreground">
+                          stock {cat.stock}
+                        </span>
+                      )}
+                    </div>
+                    {materials.length > 0 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="View materials"
+                          >
+                            <Info className="h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 text-sm">
+                          <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                            Materials
+                          </div>
+                          <ul className="space-y-1">
+                            {materials.map((m, mi) => (
+                              <li key={mi} className="flex justify-between gap-2">
+                                <span className="truncate">{m.name}</span>
+                                <span className="shrink-0 font-mono text-muted-foreground">
+                                  {m.quantity}
+                                  {m.unit && ` ${m.unit}`}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                    <Input
+                      aria-label="Quantity"
+                      value={p.quantity}
+                      onChange={(e) => setQty(p.id, e.target.value)}
+                      className="h-8 w-16 text-center"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => remove(p.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
       </div>
+
+      {stockWarnings.length > 0 && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+          <div className="mb-1 font-semibold text-amber-800 dark:text-amber-200">
+            Stock warning (order can still be sent):
+          </div>
+          <ul className="ml-4 list-disc text-amber-900 dark:text-amber-100">
+            {stockWarnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <Label htmlFor="notes">Notes</Label>
