@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UnlockRouteImport } from './routes/unlock'
 import { Route as GatedRouteImport } from './routes/_gated'
 import { Route as GatedIndexRouteImport } from './routes/_gated.index'
 import { Route as GatedProductionRouteImport } from './routes/_gated.production'
@@ -17,6 +18,11 @@ import { Route as GatedDevRouteImport } from './routes/_gated.dev'
 import { Route as GatedAdminRouteImport } from './routes/_gated.admin'
 import { Route as GatedProductionPrintIdRouteImport } from './routes/_gated.production.print.$id'
 
+const UnlockRoute = UnlockRouteImport.update({
+  id: '/unlock',
+  path: '/unlock',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GatedRoute = GatedRouteImport.update({
   id: '/_gated',
   getParentRoute: () => rootRouteImport,
@@ -54,6 +60,7 @@ const GatedProductionPrintIdRoute = GatedProductionPrintIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof GatedIndexRoute
+  '/unlock': typeof UnlockRoute
   '/admin': typeof GatedAdminRoute
   '/dev': typeof GatedDevRoute
   '/office': typeof GatedOfficeRoute
@@ -61,6 +68,7 @@ export interface FileRoutesByFullPath {
   '/production/print/$id': typeof GatedProductionPrintIdRoute
 }
 export interface FileRoutesByTo {
+  '/unlock': typeof UnlockRoute
   '/admin': typeof GatedAdminRoute
   '/dev': typeof GatedDevRoute
   '/office': typeof GatedOfficeRoute
@@ -71,6 +79,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_gated': typeof GatedRouteWithChildren
+  '/unlock': typeof UnlockRoute
   '/_gated/admin': typeof GatedAdminRoute
   '/_gated/dev': typeof GatedDevRoute
   '/_gated/office': typeof GatedOfficeRoute
@@ -82,6 +91,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/unlock'
     | '/admin'
     | '/dev'
     | '/office'
@@ -89,6 +99,7 @@ export interface FileRouteTypes {
     | '/production/print/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/unlock'
     | '/admin'
     | '/dev'
     | '/office'
@@ -98,6 +109,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_gated'
+    | '/unlock'
     | '/_gated/admin'
     | '/_gated/dev'
     | '/_gated/office'
@@ -108,10 +120,18 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   GatedRoute: typeof GatedRouteWithChildren
+  UnlockRoute: typeof UnlockRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/unlock': {
+      id: '/unlock'
+      path: '/unlock'
+      fullPath: '/unlock'
+      preLoaderRoute: typeof UnlockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_gated': {
       id: '/_gated'
       path: ''
@@ -196,7 +216,18 @@ const GatedRouteWithChildren = GatedRoute._addFileChildren(GatedRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   GatedRoute: GatedRouteWithChildren,
+  UnlockRoute: UnlockRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
