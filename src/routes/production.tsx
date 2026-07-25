@@ -11,11 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Printer, CheckCircle2, Pencil, Trash2, Inbox } from "lucide-react";
+import { Plus, Printer, CheckCircle2, Pencil, Trash2, Inbox, UserPlus } from "lucide-react";
 import { SectionHeader } from "@/components/flowsync/SectionHeader";
 import { SupplyForm } from "@/components/flowsync/SupplyForm";
 import { PrintSheet } from "@/components/flowsync/PrintSheet";
 import { SuppliesImport } from "@/components/flowsync/SuppliesImport";
+import { StockExport } from "@/components/flowsync/StockExport";
 import { store, useFlowSync, type Order, type Supply } from "@/lib/flowsync-store";
 import { OrderStatusBadge, SupplyBadge, EmptyState, OrderView } from "./office";
 
@@ -101,6 +102,13 @@ function ProductionPage() {
                     onView={() => setViewing(o)}
                     onComplete={() => store.completeOrder(o.id)}
                     onPrint={() => startPrint(o)}
+                    onAssign={() => {
+                      const next = prompt(
+                        "Assign this order to (worker name):",
+                        o.assignedTo ?? "",
+                      );
+                      if (next !== null) store.assignOrder(o.id, next.trim());
+                    }}
                   />
                 ))}
               </div>
@@ -116,6 +124,7 @@ function ProductionPage() {
                 </p>
               </div>
               <div className="flex gap-2">
+                <StockExport />
                 <SuppliesImport importedBy="Production" />
                 <Button onClick={() => setSupplyDialog({ open: true })}>
                   <Plus className="mr-1 h-4 w-4" /> Add supply
@@ -227,11 +236,13 @@ function ProdOrderCard({
   onView,
   onComplete,
   onPrint,
+  onAssign,
 }: {
   order: Order;
   onView: () => void;
   onComplete: () => void;
   onPrint: () => void;
+  onAssign: () => void;
 }) {
   return (
     <Card className={order.status === "sent" ? "border-primary/40" : ""}>
@@ -248,10 +259,17 @@ function ProdOrderCard({
             {order.date} · {order.products.length} product
             {order.products.length !== 1 ? "s" : ""}
             {order.createdBy && ` · from ${order.createdBy}`}
+            {order.assignedTo
+              ? ` · assigned to ${order.assignedTo}`
+              : " · unassigned"}
             {order.notes && ` · ${order.notes.slice(0, 60)}${order.notes.length > 60 ? "…" : ""}`}
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={onAssign}>
+            <UserPlus className="mr-1 h-4 w-4" />
+            {order.assignedTo ? "Reassign" : "Assign"}
+          </Button>
           <Button variant="outline" size="sm" onClick={onView}>
             View
           </Button>
