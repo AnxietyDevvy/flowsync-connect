@@ -1,37 +1,24 @@
-## Site-wide password gate
+## Office Idle Screen
 
-Add a shared-password gate in front of the entire FlowSync app. One password unlocks the whole site for the current browser session; existing Office/Admin/Dev passwords stay as extra layers on top.
+Add an inactivity overlay on the Office side only. After 30s of no activity, fade in an animated bubble background with "In Idle Mode". On any interaction, briefly show "Welcome back" then fade out.
 
 ### Behavior
-- First visit → `/unlock` page: FlowSync/BPT branding, single password input, "Enter" button.
-- Correct password → session cookie set, redirect to originally requested URL (or `/`).
-- Wrong password → generic "Incorrect password" message.
-- Persistence: session cookie only (cleared when browser closes).
-- Locked visitors cannot reach any route (landing, `/office`, `/production`, `/admin`, `/dev`, print routes) or any protected server data.
-- `/unlock` itself and `/api/*` public endpoints (if any added later) stay ungated.
+- Scope: `/office` routes only (not landing, Production, Admin, Dev, Print, or Unlock).
+- Trigger: 30s without `mousemove`, `mousedown`, `keydown`, `touchstart`, or `scroll`.
+- Activity while idle: show "Welcome back, {name}" for ~1.2s, then fade the overlay out.
+- Transitions: 500ms fade for enter/exit using existing `animate-fade-in` / `animate-fade-out` utilities.
+- Pause: don't count typing in inputs as inactivity (any keystroke resets the timer, which already covers this).
+- Print flow: suppress the idle overlay while `printing` state is active so it never covers the print sheet.
 
-### Technical approach (uses the tanstack-shared-password-gate pattern)
-- New env vars (server-only, not `VITE_`-prefixed):
-  - `SITE_PASSWORD` — I'll ask you to enter it via a secure form (suggested value: `bpt-flowsync`, you can change it).
-  - `SESSION_SECRET` — auto-generated 32+ char random string to encrypt the session cookie.
-- New files:
-  - `src/lib/site-gate.functions.ts` — `unlockSite` (timing-safe compare + set session), `lockSite`, and a `requireUnlocked()` helper. Session cookie `httpOnly`, `secure`, `sameSite=lax`, no `maxAge` → cleared on browser close.
-  - `src/routes/unlock.tsx` — password form, calls `unlockSite`, navigates back to intended path.
-  - `src/routes/_gated.tsx` — pathless layout with `beforeLoad` that calls a `checkUnlocked` server fn and throws `redirect({ to: '/unlock', search: { redirect: location.href } })` when locked.
-- Move existing route files under the `_gated` layout by renaming:
-  - `index.tsx` → `_gated.index.tsx`
-  - `office.tsx` → `_gated.office.tsx`
-  - `production.tsx` → `_gated.production.tsx`
-  - `production.print.$id.tsx` → `_gated.production.print.$id.tsx`
-  - `admin.tsx` → `_gated.admin.tsx`
-  - `dev.tsx` → `_gated.dev.tsx`
-  - Route-string constants inside each file updated to include `/_gated/...`.
-- No changes to existing Office/Admin/Dev passwords, Supabase schema, or app data.
+### Visual
+- Full-screen fixed overlay above app content (`z-50`), themed background (respects Red / Light / Dark themes via existing tokens).
+- 12–16 softly floating translucent circles ("bubbles") animated with CSS keyframes (rise + gentle horizontal drift, staggered delays/sizes). Pure CSS, no libs.
+- Centered content: FlowSync logo, large "In Idle Mode" heading, subtle "Move your mouse to resume" hint. Swaps to "Welcome back, {name}" on wake.
 
-### Out of scope
-- No per-user accounts or activity attribution changes.
-- No "remember me for X days" option (session-only per your choice).
-- No changes to what happens inside sections once unlocked.
+### Files
+- New `src/components/flowsync/IdleOverlay.tsx` — overlay UI, bubble animation, welcome-back state, accepts `userName` prop.
+- New `src/hooks/use-idle.ts` — tracks idle state with a configurable timeout, returns `{ isIdle, justWoke }`.
+- Update `src/styles.css` — add `@keyframes bubble-rise` and a `.bubble` utility (only new CSS; no token changes).
+- Update `src/routes/_gated/office.tsx` — mount `<IdleOverlay />` inside `OfficeApp` (after password gate), pass `userName`, and skip mounting while `printing`.
 
-### What I'll need from you during build
-- Confirm/enter the site password in the secure secret form when prompted (default suggestion: `bpt-flowsync`).
+No backend, store, or business-logic changes.
