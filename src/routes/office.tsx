@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Send, Eye, Trash2, CheckCircle2, Factory } from "lucide-react";
+import { Plus, Send, Eye, Trash2, CheckCircle2, Factory, Search } from "lucide-react";
 import { SectionHeader } from "@/components/flowsync/SectionHeader";
 import { FlowSyncLogo } from "@/components/flowsync/Logos";
 import { OrderForm } from "@/components/flowsync/OrderForm";
@@ -169,8 +169,18 @@ function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void 
   const { orders, supplies } = useFlowSync();
   const [creating, setCreating] = useState(false);
   const [viewing, setViewing] = useState<Order | null>(null);
+  const [supplyQuery, setSupplyQuery] = useState("");
 
   const newSupplies = supplies.filter((s) => !s.noticedByOffice).length;
+  const filteredSupplies = supplies.filter((s) => {
+    const q = supplyQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      s.name.toLowerCase().includes(q) ||
+      s.notes.toLowerCase().includes(q) ||
+      s.status.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -272,14 +282,27 @@ function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void 
                 <SuppliesImport importedBy={userName} />
               </div>
             </div>
+            <div className="relative mb-3">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search supplies…"
+                value={supplyQuery}
+                onChange={(e) => setSupplyQuery(e.target.value)}
+                className="pl-8"
+              />
+            </div>
             {supplies.length === 0 ? (
               <EmptyState
                 title="No supplies yet"
                 description="Production hasn't added any supplies."
               />
+            ) : filteredSupplies.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
+                No supplies match "{supplyQuery}"
+              </div>
             ) : (
               <div className="grid gap-3">
-                {supplies.map((s) => (
+                {filteredSupplies.map((s) => (
                   <Card key={s.id} className={!s.noticedByOffice ? "border-primary/40" : ""}>
                     <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
                       <div className="min-w-0 flex-1">
