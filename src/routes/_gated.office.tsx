@@ -22,6 +22,7 @@ import { ProductsManager } from "@/components/flowsync/ProductsManager";
 import { SuppliesImport } from "@/components/flowsync/SuppliesImport";
 import { SuppliersManager } from "@/components/flowsync/SuppliersManager";
 import { StockExport } from "@/components/flowsync/StockExport";
+import { IdleOverlay } from "@/components/flowsync/IdleOverlay";
 import {
   OFFICE_PASSWORD,
   OFFICE_UNLOCK_KEY,
@@ -189,6 +190,7 @@ function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void 
   return (
     <div className="min-h-screen bg-background">
       <SectionHeader label="Office" userName={userName} onLock={onLock} />
+      <IdleOverlay userName={userName} />
 
       <main className="mx-auto max-w-7xl px-6 py-8">
         <Tabs defaultValue="orders">
