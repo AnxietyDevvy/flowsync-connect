@@ -1,43 +1,54 @@
-## Manufacturing tab in Production
+## Hidden `/dev` section (just for you)
 
-Add a Manufacturing workflow so Office can send low/out-of-stock supplies to Production to be remade, and Production tracks them in a new tab.
+A new hidden route at `/dev`, protected by a password prompt (same pattern as `/admin`). Not linked anywhere in the UI — you just type the URL. Kept fully separate from `/admin`, which stays as-is for shared office use.
 
-### Data
-New table `public.manufacturing_requests`:
-- `supply_id`, `supply_name` (snapshot), `notes`
-- `status`: `pending` | `in_progress` | `completed`
-- `requested_by`, `requested_at`
-- `started_by`, `started_at`
-- `completed_by`, `completed_at`
-- Standard `id`, `created_at`, `updated_at`
-- RLS: permissive anon (matches existing tables), added to `supabase_realtime` publication
+### Password
+- `bpt-dev` (hardcoded like the Office/Admin passwords). Say the word if you'd like a different one.
+- Session unlock stored in `sessionStorage` (auto-locks when the browser closes), same as Office/Admin.
 
-### Store (`src/lib/flowsync-store.ts`)
-- Load + realtime subscribe to `manufacturing_requests`
-- Methods: `sendToManufacturing(supply, userName)`, `startManufacturing(id, userName)`, `completeManufacturing(id, userName)`
+### What's inside — three tabs
 
-### Office — Supplies tab
-- Each supply row/card gets a **Send to Manufacturing** button next to **Notice** (always available, per your choice)
-- Small badge if that supply already has a pending/in-progress request (prevents duplicate spam)
+**1. Dashboard (everything Admin has)**
+- Overview stats: orders, supplies, products, suppliers, manufacturing counts
+- Full data tables for orders, supplies, products, suppliers, manufacturing (status edit + delete)
+- User activity log
+- Basically a copy of the current `/admin` content so you have it in one place without cross-navigation
 
-### Production — new **Manufacturing** tab
-- Sits alongside Orders and Supplies in `src/routes/production.tsx`
-- Three columns/sections: Pending → In Progress → Completed
-- Each card shows supply name, notes, who requested it, timestamps
-- Actions: **Mark In Progress** (pending → in_progress, stamps worker name), **Mark Complete** (in_progress → completed)
+**2. Danger zone**
+- Wipe all draft orders
+- Wipe all completed orders
+- Wipe all completed manufacturing requests
+- Reset a table (Orders / Supplies / Products / Suppliers / Manufacturing) — hard delete every row
+- Export full database snapshot as a single JSON file (all tables)
+- Import snapshot back (restores all tables from a JSON file — with a scary confirm)
+- Every destructive action requires typing the table name (or `WIPE`) to confirm
 
-### Admin
-- Add manufacturing count to Overview stats
-- Add a Manufacturing data table with status editing + delete (matches other admin tables)
+**3. App settings**
+- Edit the Office password, Admin password, and Dev password (stored in a new `app_settings` key/value table so changes stick across devices)
+- Seed default product catalog (re-inserts the original 28 ballistic products if missing)
+- Toggle feature flags: show/hide Manufacturing tab, show/hide Suppliers tab, allow Office to send-to-manufacturing (stored in `app_settings` and read by the store)
 
-### Not included (per your answers)
-- No separate section/password — it's a Production tab
-- No stock update on complete, no print sheet, no worker assignment field (just who marked in-progress)
+### Technical section
 
-### Files
-- Migration: create table + grants + RLS + realtime
-- `src/lib/flowsync-store.ts` — types, load, realtime, methods
-- `src/components/flowsync/ManufacturingPanel.tsx` — Production tab UI
-- `src/routes/office.tsx` — add Send button in supplies list
-- `src/routes/production.tsx` — add Manufacturing tab
-- `src/routes/admin.tsx` — stat + data table
+- **Route**: `src/routes/dev.tsx` — gate + tabbed layout, mirrors `admin.tsx` structure. Password check client-side, same as `/admin`.
+- **Store additions** (`src/lib/flowsync-store.ts`):
+  - `wipeOrdersByStatus(status)`, `wipeCompletedManufacturing()`, `resetTable(tableName)` — batch deletes via Supabase
+  - `exportSnapshot()` → downloads `flowsync-snapshot-<date>.json` containing all rows from all tables
+  - `importSnapshot(json)` → truncates + re-inserts each table
+  - `getAppSetting(key)` / `setAppSetting(key, value)` + realtime subscription so passwords/flags update live
+- **New table** `public.app_settings` (`key text primary key`, `value jsonb`, `updated_at`) with permissive anon RLS to match existing tables. Grants for anon + authenticated + service_role. Seeded with defaults for the three passwords and feature flags.
+- **Password source of truth**: `OFFICE_PASSWORD`, `ADMIN_PASSWORD`, `DEV_PASSWORD` in the store become fallbacks; the gates read the current values from `app_settings` first, then fall back to hardcoded defaults. This means changing a password in `/dev` propagates to everyone without a code change.
+- **Feature flags**: read once at Office/Production render time from `app_settings`; realtime sync updates the UI when you toggle them from `/dev`.
+- **No changes** to `/admin`, `/office`, `/production`, `/` — pure addition.
+
+### Files touched
+- `src/routes/dev.tsx` — new
+- `src/components/flowsync/DevDashboard.tsx`, `DevDangerZone.tsx`, `DevSettings.tsx` — new
+- `src/lib/flowsync-store.ts` — new methods + settings hook
+- `src/routes/office.tsx`, `src/routes/production.tsx` — read feature flags to hide/show tabs
+- Migration for `app_settings` table
+
+### Not included
+- No real login / accounts (per your choice of "Hidden URL + password")
+- Not linked from any menu — you access it only by typing `/dev`
+- `/admin` stays untouched

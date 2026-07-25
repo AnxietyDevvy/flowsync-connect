@@ -72,6 +72,7 @@ type State = {
   products: CatalogProduct[];
   suppliers: Supplier[];
   manufacturing: ManufacturingRequest[];
+  settings: Record<string, unknown>;
   loaded: boolean;
 };
 
@@ -81,6 +82,7 @@ let state: State = {
   products: [],
   suppliers: [],
   manufacturing: [],
+  settings: {},
   loaded: false,
 };
 const listeners = new Set<() => void>();
@@ -109,6 +111,7 @@ export function useFlowSync() {
       products: [],
       suppliers: [],
       manufacturing: [],
+      settings: {},
       loaded: false,
     }),
   );
@@ -273,6 +276,11 @@ function ensureBootstrap() {
       { event: "*", schema: "public", table: "manufacturing_requests" },
       () => refreshManufacturing(),
     )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "app_settings" },
+      () => refreshSettings(),
+    )
     .subscribe();
   // Channel intentionally lives for app lifetime.
   void channel;
@@ -285,6 +293,7 @@ async function loadAll() {
     refreshProducts(),
     refreshSuppliers(),
     refreshManufacturing(),
+    refreshSettings(),
   ]);
   setState({ loaded: true });
 }
@@ -333,6 +342,18 @@ async function refreshManufacturing() {
   setState({
     manufacturing: (data as unknown as ManufacturingRow[]).map(mapManufacturing),
   });
+}
+
+async function refreshSettings() {
+  const { data, error } = await supabase
+    .from("app_settings" as never)
+    .select("*");
+  if (error) return console.error("settings load", error);
+  const map: Record<string, unknown> = {};
+  for (const row of (data as unknown as { key: string; value: unknown }[]) ?? []) {
+    map[row.key] = row.value;
+  }
+  setState({ settings: map });
 }
 
 // Decrement product stock levels for an order's line items.
@@ -640,6 +661,89 @@ export const store = {
     if (error) console.error("deleteManufacturing", error);
     await refreshManufacturing();
   },
+
+  // --- Settings ---
+  async setSetting(key: string, value: unknown) {
+    const { error } = await supabase
+      .from("app_settings" as never)
+      .upsert({ key, value, updated_at: new Date().toISOString() } as never);
+    if (error) console.error("setSetting", error);
+    await refreshSettings();
+  },
+
+  // --- Danger zone ---
+  async wipeOrdersByStatus(status: OrderStatus) {
+    const { error } = await supabase.from("orders").delete().eq("status", status);
+    if (error) console.error("wipeOrdersByStatus", error);
+    await refreshOrders();
+  },
+  async wipeCompletedManufacturing() {
+    const { error } = await supabase
+      .from("manufacturing_requests" as never)
+      .delete()
+      .eq("status", "completed");
+    if (error) console.error("wipeCompletedManufacturing", error);
+    await refreshManufacturing();
+  },
+  async resetTable(
+    table: "orders" | "supplies" | "products" | "suppliers" | "manufacturing_requests",
+  ) {
+    const { error } = await supabase
+      .from(table as never)
+      .delete()
+      .not("id", "is", null);
+    if (error) console.error("resetTable " + table, error);
+    await loadAll();
+  },
+  async exportSnapshot() {
+    const [o, s, p, sup, m, set] = await Promise.all([
+      supabase.from("orders").select("*"),
+      supabase.from("supplies").select("*"),
+      supabase.from("products").select("*"),
+      supabase.from("suppliers").select("*"),
+      supabase.from("manufacturing_requests" as never).select("*"),
+      supabase.from("app_settings" as never).select("*"),
+    ]);
+    return {
+      exportedAt: new Date().toISOString(),
+      orders: o.data ?? [],
+      supplies: s.data ?? [],
+      products: p.data ?? [],
+      suppliers: sup.data ?? [],
+      manufacturing_requests: m.data ?? [],
+      app_settings: set.data ?? [],
+    };
+  },
+  async importSnapshot(snapshot: {
+    orders?: unknown[];
+    supplies?: unknown[];
+    products?: unknown[];
+    suppliers?: unknown[];
+    manufacturing_requests?: unknown[];
+    app_settings?: unknown[];
+  }) {
+    // Wipe then insert. Any error is logged but we continue for a best-effort restore.
+    const tables: Array<[string, unknown[] | undefined]> = [
+      ["manufacturing_requests", snapshot.manufacturing_requests],
+      ["orders", snapshot.orders],
+      ["supplies", snapshot.supplies],
+      ["products", snapshot.products],
+      ["suppliers", snapshot.suppliers],
+      ["app_settings", snapshot.app_settings],
+    ];
+    for (const [t] of tables) {
+      const { error } = await supabase.from(t as never).delete().not("id", "is", null);
+      if (error && t !== "app_settings") console.error("import wipe " + t, error);
+    }
+    // app_settings uses `key` PK, wipe separately
+    await supabase.from("app_settings" as never).delete().not("key", "is", null);
+    for (const [t, rows] of tables) {
+      if (!rows || rows.length === 0) continue;
+      const { error } = await supabase.from(t as never).insert(rows as never);
+      if (error) console.error("import insert " + t, error);
+    }
+    await loadAll();
+  },
 };
 
 export function nextOrderNumber(orders: Order[]) {
@@ -660,6 +764,22 @@ export const OFFICE_USERNAME_KEY = "flowsync-office-username";
 
 export const ADMIN_PASSWORD = "bpt-admin";
 export const ADMIN_UNLOCK_KEY = "flowsync-admin-unlocked";
+
+export const DEV_PASSWORD = "bpt-dev";
+export const DEV_UNLOCK_KEY = "flowsync-dev-unlocked";
+
+/** Read a setting synchronously from the current store state. */
+export function getSetting<T = unknown>(key: string, fallback: T): T {
+  const v = state.settings[key];
+  return (v === undefined || v === null ? fallback : v) as T;
+}
+
+export function getEffectivePassword(kind: "office" | "admin" | "dev"): string {
+  const fallback =
+    kind === "office" ? OFFICE_PASSWORD : kind === "admin" ? ADMIN_PASSWORD : DEV_PASSWORD;
+  const v = state.settings[`${kind}_password`];
+  return typeof v === "string" && v.length > 0 ? v : fallback;
+}
 
 export function getSavedOfficeName(): string {
   if (typeof window === "undefined") return "";

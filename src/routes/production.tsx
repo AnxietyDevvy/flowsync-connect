@@ -27,7 +27,8 @@ export const Route = createFileRoute("/production")({
 });
 
 function ProductionPage() {
-  const { orders, supplies, manufacturing } = useFlowSync();
+  const { orders, supplies, manufacturing, settings } = useFlowSync();
+  const showMfg = settings.feature_manufacturing !== false;
   const [viewing, setViewing] = useState<Order | null>(null);
   const [printing, setPrinting] = useState<Order | null>(null);
   const [supplyDialog, setSupplyDialog] = useState<{ open: boolean; edit?: Supply }>({
@@ -92,6 +93,7 @@ function ProductionPage() {
               )}
             </TabsTrigger>
             <TabsTrigger value="supplies">Supplies</TabsTrigger>
+            {showMfg && (
             <TabsTrigger value="manufacturing" className="gap-2">
               Manufacturing
               {pendingMfg > 0 && (
@@ -100,6 +102,7 @@ function ProductionPage() {
                 </Badge>
               )}
             </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="orders" className="mt-6">
@@ -213,6 +216,7 @@ function ProductionPage() {
             )}
           </TabsContent>
 
+          {showMfg && (
           <TabsContent value="manufacturing" className="mt-6">
             <div className="mb-4 flex items-center gap-3">
               <Factory className="h-6 w-6 text-primary" />
@@ -225,6 +229,7 @@ function ProductionPage() {
             </div>
             <ManufacturingPanel userName="Production" />
           </TabsContent>
+          )}
         </Tabs>
       </main>
 

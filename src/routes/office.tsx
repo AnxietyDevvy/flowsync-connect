@@ -27,6 +27,8 @@ import {
   OFFICE_UNLOCK_KEY,
   getSavedOfficeName,
   setSavedOfficeName,
+  getEffectivePassword,
+  getSetting,
   store,
   useFlowSync,
   type Order,
@@ -89,7 +91,7 @@ function OfficeGate({
       setError("Enter your name");
       return;
     }
-    if (pw !== OFFICE_PASSWORD) {
+    if (pw !== getEffectivePassword("office") && pw !== OFFICE_PASSWORD) {
       setError("Incorrect password");
       return;
     }
@@ -166,10 +168,12 @@ function OfficeGate({
 }
 
 function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void }) {
-  const { orders, supplies } = useFlowSync();
+  const { orders, supplies, settings } = useFlowSync();
   const [creating, setCreating] = useState(false);
   const [viewing, setViewing] = useState<Order | null>(null);
   const [supplyQuery, setSupplyQuery] = useState("");
+  const showSuppliers = settings.feature_suppliers !== false;
+  const showSendToMfg = settings.feature_send_to_manufacturing !== false;
 
   const newSupplies = supplies.filter((s) => !s.noticedByOffice).length;
   const filteredSupplies = supplies.filter((s) => {
@@ -191,7 +195,7 @@ function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void 
           <TabsList>
             <TabsTrigger value="orders">Package orders</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
-            <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
+            {showSuppliers && <TabsTrigger value="suppliers">Suppliers</TabsTrigger>}
             <TabsTrigger value="supplies" className="gap-2">
               Supplies
               {newSupplies > 0 && (
@@ -259,6 +263,7 @@ function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void 
             <ProductsManager />
           </TabsContent>
 
+          {showSuppliers && (
           <TabsContent value="suppliers" className="mt-6">
             <div className="mb-4">
               <h2 className="text-2xl font-bold">Suppliers</h2>
@@ -268,6 +273,7 @@ function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void 
             </div>
             <SuppliersManager createdBy={userName} />
           </TabsContent>
+          )}
 
           <TabsContent value="supplies" className="mt-6">
             <div className="mb-4 flex items-center justify-between gap-4">
@@ -328,6 +334,7 @@ function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void 
                           <CheckCircle2 className="mr-1 h-4 w-4" /> Mark noticed
                         </Button>
                       )}
+                      {showSendToMfg && (
                       <Button
                         size="sm"
                         onClick={() =>
@@ -339,6 +346,7 @@ function OfficeApp({ userName, onLock }: { userName: string; onLock: () => void 
                       >
                         <Factory className="mr-1 h-4 w-4" /> Send to Manufacturing
                       </Button>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
