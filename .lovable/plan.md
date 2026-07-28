@@ -1,36 +1,40 @@
-## Profile customization (synced, no login)
+## Goal
 
-Add a synced profile per person: **display name, role/title, avatar** (color-tinted initials badge or uploaded image). Profile shows in the header, on order cards ("created by"), supply notices, and manufacturing requests. No real login — the typed name is still the identity, but the profile record lives in the cloud so the same avatar/role follows the user across devices.
+Keep the current shared-password gate as the access model, but make the site meaningfully "company-only" by removing the ways an outsider could stumble on the URL or brute-force the password.
 
-### Data
-New `profiles` table in Lovable Cloud, keyed by lowercased name:
-- `name_key` (PK, text) — lowercase trimmed name
-- `display_name` (text) — cased version
-- `role` (text) — e.g. "Office Lead"
-- `avatar_color` (text) — one of ~8 preset tokens (red/amber/emerald/…)
-- `avatar_url` (text, nullable) — for uploaded images
-- standard timestamps
-- RLS: `authenticated` full access (matches existing tables)
+## Changes
 
-New `avatars` public storage bucket for uploaded images (2MB cap, image/*).
+1. **Rotate the site password** to a stronger, company-only value
+   - Update the `SITE_PASSWORD` secret to something non-guessable (not `bpt-flowsync`, which has appeared in chat and is easy to guess).
+   - You share the new password with staff directly (chat/email/notice board) — not through the app.
+   - Suggested: something like `Bpt-Flow-2026-Sync!` or a value you provide. I'll ask for the exact value before rotating.
 
-### UI
-- **Header** — replace the plain name chip with an avatar + name button; clicking opens the profile editor.
-- **Profile editor dialog** — edit display name, role, pick a color OR upload an image, live preview. "Save" upserts profile in the store.
-- **Welcome screen** — after typing a name, if no profile exists it prompts for role + avatar as step 2 (skippable, defaults to initials + auto-picked color).
-- **Everywhere a name appears** (order cards, supply notices, manufacturing panels, print sheet "prepared by") — render a small `<PersonBadge>` = avatar + name + optional role.
+2. **Hide the site from search engines**
+   - Add `robots.txt` disallowing all crawlers.
+   - Add `<meta name="robots" content="noindex, nofollow">` in the root head.
+   - Effect: the URL won't show up in Google/Bing results, so people can only reach it if you give them the link.
 
-### Sync
-`flowsync-store` gains `profiles` state, realtime subscription, offline cache, and outbox-backed `upsertProfile`/`setAvatarUrl` mutations, matching the existing offline-first pattern.
+3. **Hide the "Edit with Lovable" badge** on the published site
+   - Removes the visible Lovable branding that hints this is a Lovable-hosted app.
+   - Requires Pro plan or higher (you may already have this — I'll check).
 
-### Files
-- New migration: `profiles` table + `avatars` bucket + RLS/grants.
-- New `src/components/flowsync/PersonBadge.tsx` — avatar+name display.
-- New `src/components/flowsync/ProfileEditor.tsx` — dialog form.
-- Update `src/lib/flowsync-store.ts` — profile types, load/refresh/realtime, cache, mutations.
-- Update `src/components/flowsync/SectionHeader.tsx` — avatar button opens editor.
-- Update `src/components/flowsync/WelcomeForm.tsx` — optional profile step.
-- Update order/supply/manufacturing renderers in `_gated.office.tsx`, `_gated.production.tsx`, `ManufacturingPanel.tsx`, `PrintSheet.tsx`, and `_gated.admin.tsx` to use `<PersonBadge>`.
+4. **Small gate hardening**
+   - Add a short throttle on `/unlock` so someone can't script thousands of password guesses (e.g. 5 attempts / 15 min per session cookie, with a friendly "try again shortly" message).
+   - Keep the existing timing-safe compare and encrypted session cookie.
 
-### Not included
-No real per-user login, no permissions/roles enforcement — role is display-only. Profiles are keyed by name, so two people typing the same name share one profile (matches today's behavior).
+## What this does and doesn't give you
+
+- **Does**: URL is unlisted, badge is gone, password is strong and only your team knows it, guessing is slow.
+- **Doesn't**: There are still no individual accounts — anyone who has the password can enter, and you can't revoke one person without rotating the password for everyone. If you later want per-person access (with the ability to remove one user), the right move is switching to email-allowlist login. Not doing that now.
+
+## Files touched
+
+- `public/robots.txt` (new)
+- `src/routes/__root.tsx` — add noindex meta
+- `src/lib/site-gate.functions.ts` — add per-session attempt throttle
+- Secret rotation via tooling (no code change)
+- Badge visibility via tooling (no code change)
+
+## What I need from you before building
+
+- The new site password value (or say "generate one and show it to me once").
