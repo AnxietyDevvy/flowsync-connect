@@ -1,5 +1,101 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { saveCache, readCache } from "@/lib/offline/cache";
+import { submit, startOutboxFlusher } from "@/lib/offline/outbox";
+
+function newId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// Optimistic local mutators (in-memory state only).
+function upsertOrder(o: Order) {
+  const list = state.orders.filter((x) => x.id !== o.id);
+  setState({ orders: [o, ...list] });
+  saveCache("orders", state.orders);
+}
+function patchOrder(id: string, patch: Partial<Order>) {
+  const orders = state.orders.map((o) => (o.id === id ? { ...o, ...patch } : o));
+  setState({ orders });
+  saveCache("orders", orders);
+}
+function removeOrder(id: string) {
+  const orders = state.orders.filter((o) => o.id !== id);
+  setState({ orders });
+  saveCache("orders", orders);
+}
+function upsertSupply(s: Supply) {
+  const list = state.supplies.filter((x) => x.id !== s.id);
+  const supplies = [s, ...list];
+  setState({ supplies });
+  saveCache("supplies", supplies);
+}
+function patchSupply(id: string, patch: Partial<Supply>) {
+  const supplies = state.supplies.map((s) =>
+    s.id === id ? { ...s, ...patch, updatedAt: Date.now() } : s,
+  );
+  setState({ supplies });
+  saveCache("supplies", supplies);
+}
+function removeSupply(id: string) {
+  const supplies = state.supplies.filter((s) => s.id !== id);
+  setState({ supplies });
+  saveCache("supplies", supplies);
+}
+function upsertProduct(p: CatalogProduct) {
+  const list = state.products.filter((x) => x.id !== p.id);
+  const products = [...list, p].sort((a, b) =>
+    a.category === b.category ? a.name.localeCompare(b.name) : a.category.localeCompare(b.category),
+  );
+  setState({ products });
+  saveCache("products", products);
+}
+function patchProduct(id: string, patch: Partial<CatalogProduct>) {
+  const products = state.products.map((p) => (p.id === id ? { ...p, ...patch } : p));
+  setState({ products });
+  saveCache("products", products);
+}
+function removeProduct(id: string) {
+  const products = state.products.filter((p) => p.id !== id);
+  setState({ products });
+  saveCache("products", products);
+}
+function upsertSupplier(s: Supplier) {
+  const list = state.suppliers.filter((x) => x.id !== s.id);
+  const suppliers = [...list, s].sort((a, b) => a.name.localeCompare(b.name));
+  setState({ suppliers });
+  saveCache("suppliers", suppliers);
+}
+function patchSupplier(id: string, patch: Partial<Supplier>) {
+  const suppliers = state.suppliers.map((s) =>
+    s.id === id ? { ...s, ...patch, updatedAt: Date.now() } : s,
+  );
+  setState({ suppliers });
+  saveCache("suppliers", suppliers);
+}
+function removeSupplier(id: string) {
+  const suppliers = state.suppliers.filter((s) => s.id !== id);
+  setState({ suppliers });
+  saveCache("suppliers", suppliers);
+}
+function upsertManufacturing(m: ManufacturingRequest) {
+  const list = state.manufacturing.filter((x) => x.id !== m.id);
+  const manufacturing = [m, ...list];
+  setState({ manufacturing });
+  saveCache("manufacturing", manufacturing);
+}
+function patchManufacturing(id: string, patch: Partial<ManufacturingRequest>) {
+  const manufacturing = state.manufacturing.map((m) =>
+    m.id === id ? { ...m, ...patch } : m,
+  );
+  setState({ manufacturing });
+  saveCache("manufacturing", manufacturing);
+}
+function removeManufacturing(id: string) {
+  const manufacturing = state.manufacturing.filter((m) => m.id !== id);
+  setState({ manufacturing });
+  saveCache("manufacturing", manufacturing);
+}
 
 export type OrderStatus = "draft" | "sent" | "completed";
 export type Product = { id: string; name: string; quantity: string };
