@@ -20,18 +20,24 @@ function UnlockPage() {
   const { redirect } = useSearch({ from: "/unlock" });
   const unlock = useServerFn(unlockSite);
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (busy) return;
     setBusy(true);
-    setError(false);
+    setError(null);
     try {
-      const { ok } = await unlock({ data: { password } });
+      const res = await unlock({ data: { password } });
       if (!ok) {
-        setError(true);
+      if (!res.ok) {
+        if (res.retryAfterSeconds) {
+          const mins = Math.ceil(res.retryAfterSeconds / 60);
+          setError(`Too many attempts. Try again in about ${mins} min.`);
+        } else {
+          setError("Incorrect password");
+        }
         setPassword("");
         return;
       }
@@ -72,7 +78,7 @@ function UnlockPage() {
                 required
               />
               {error && (
-                <p className="mt-2 text-sm text-destructive">Incorrect password</p>
+                <p className="mt-2 text-sm text-destructive">{error}</p>
               )}
             </div>
             <Button type="submit" className="w-full" disabled={busy || !password}>
