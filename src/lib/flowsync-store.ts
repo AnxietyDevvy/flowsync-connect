@@ -462,6 +462,7 @@ async function loadAll() {
     refreshSuppliers(),
     refreshManufacturing(),
     refreshSettings(),
+    refreshProfiles(),
   ]);
   setState({ loaded: true });
 }
