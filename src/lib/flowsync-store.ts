@@ -1001,3 +1001,17 @@ export function setSavedOfficeName(name: string) {
   if (name) localStorage.setItem(OFFICE_USERNAME_KEY, name);
   else localStorage.removeItem(OFFICE_USERNAME_KEY);
 }
+
+export function findProfile(name: string): Profile | undefined {
+  if (!name) return undefined;
+  const k = nameKey(name);
+  return state.profiles.find((p) => p.nameKey === k);
+}
+
+/** Hook to read a person's profile by display name, reactive to store updates. */
+export function useProfile(name: string): Profile | undefined {
+  const { profiles } = useFlowSync();
+  if (!name) return undefined;
+  const k = nameKey(name);
+  return profiles.find((p) => p.nameKey === k);
+}
