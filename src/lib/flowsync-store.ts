@@ -386,6 +386,7 @@ function ensureBootstrap() {
     products: readCache<CatalogProduct[]>("products", []),
     suppliers: readCache<Supplier[]>("suppliers", []),
     manufacturing: readCache<ManufacturingRequest[]>("manufacturing", []),
+    profiles: readCache<Profile[]>("profiles", []),
     settings: readCache<Record<string, unknown>>("settings", {}),
     loaded: true,
   });
@@ -428,6 +429,11 @@ function ensureBootstrap() {
       "postgres_changes",
       { event: "*", schema: "public", table: "app_settings" },
       () => refreshSettings(),
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "profiles" },
+      () => refreshProfiles(),
     )
     .subscribe();
   // Channel intentionally lives for app lifetime.
