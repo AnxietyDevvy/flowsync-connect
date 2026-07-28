@@ -40,7 +40,6 @@ function UnlockPage() {
         setPassword("");
         return;
       }
-      }
       const target =
         redirect && redirect.startsWith("/") && !redirect.startsWith("/unlock")
           ? redirect
