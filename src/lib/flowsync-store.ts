@@ -241,6 +241,7 @@ export function useFlowSync() {
       products: [],
       suppliers: [],
       manufacturing: [],
+      profiles: [],
       settings: {},
       loaded: false,
     }),
