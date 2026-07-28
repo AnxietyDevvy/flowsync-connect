@@ -38,6 +38,7 @@ export function registerAppSW() {
     void unregisterAppSW();
     return;
   }
+  // @ts-expect-error - virtual module provided by vite-plugin-pwa at build time
   void import("virtual:pwa-register").then(({ registerSW }) => {
     registerSW({ immediate: true });
   }).catch(() => {

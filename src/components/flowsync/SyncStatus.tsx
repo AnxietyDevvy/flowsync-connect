@@ -10,7 +10,10 @@ export function SyncStatus() {
 
   useEffect(() => {
     setPending(outboxSize());
-    return subscribeOutbox(() => setPending(outboxSize()));
+    const un = subscribeOutbox(() => setPending(outboxSize()));
+    return () => {
+      un();
+    };
   }, []);
 
   async function syncNow() {
