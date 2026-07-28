@@ -344,6 +344,20 @@ let bootstrapped = false;
 function ensureBootstrap() {
   if (bootstrapped || typeof window === "undefined") return;
   bootstrapped = true;
+  // Hydrate from cache first so the UI works offline before any network call.
+  setState({
+    orders: readCache<Order[]>("orders", []),
+    supplies: readCache<Supply[]>("supplies", []),
+    products: readCache<CatalogProduct[]>("products", []),
+    suppliers: readCache<Supplier[]>("suppliers", []),
+    manufacturing: readCache<ManufacturingRequest[]>("manufacturing", []),
+    settings: readCache<Record<string, unknown>>("settings", {}),
+    loaded: true,
+  });
+  // Start outbox flusher; when a flush drains pending writes, reload from network.
+  startOutboxFlusher(() => {
+    void loadAll();
+  });
   void (async () => {
     await ensureAnonSession();
     await loadAll();
@@ -417,7 +431,9 @@ async function refreshOrders() {
     .select("*")
     .order("created_at", { ascending: false });
   if (error) return console.error("orders load", error);
-  setState({ orders: (data as OrderRow[]).map(mapOrder) });
+  const orders = (data as OrderRow[]).map(mapOrder);
+  setState({ orders });
+  saveCache("orders", orders);
 }
 async function refreshSupplies() {
   const { data, error } = await supabase
@@ -425,7 +441,9 @@ async function refreshSupplies() {
     .select("*")
     .order("updated_at", { ascending: false });
   if (error) return console.error("supplies load", error);
-  setState({ supplies: (data as SupplyRow[]).map(mapSupply) });
+  const supplies = (data as SupplyRow[]).map(mapSupply);
+  setState({ supplies });
+  saveCache("supplies", supplies);
 }
 async function refreshProducts() {
   const { data, error } = await supabase
@@ -434,7 +452,9 @@ async function refreshProducts() {
     .order("category")
     .order("name");
   if (error) return console.error("products load", error);
-  setState({ products: (data as ProductRow[]).map(mapProduct) });
+  const products = (data as ProductRow[]).map(mapProduct);
+  setState({ products });
+  saveCache("products", products);
 }
 
 async function refreshSuppliers() {
@@ -443,7 +463,9 @@ async function refreshSuppliers() {
     .select("*")
     .order("name");
   if (error) return console.error("suppliers load", error);
-  setState({ suppliers: (data as SupplierRow[]).map(mapSupplier) });
+  const suppliers = (data as SupplierRow[]).map(mapSupplier);
+  setState({ suppliers });
+  saveCache("suppliers", suppliers);
 }
 
 async function refreshManufacturing() {
@@ -452,9 +474,9 @@ async function refreshManufacturing() {
     .select("*")
     .order("requested_at", { ascending: false });
   if (error) return console.error("manufacturing load", error);
-  setState({
-    manufacturing: (data as unknown as ManufacturingRow[]).map(mapManufacturing),
-  });
+  const manufacturing = (data as unknown as ManufacturingRow[]).map(mapManufacturing);
+  setState({ manufacturing });
+  saveCache("manufacturing", manufacturing);
 }
 
 async function refreshSettings() {
@@ -467,6 +489,7 @@ async function refreshSettings() {
     map[row.key] = row.value;
   }
   setState({ settings: map });
+  saveCache("settings", map);
 }
 
 // Decrement product stock levels for an order's line items.
