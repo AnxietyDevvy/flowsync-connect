@@ -510,6 +510,44 @@ async function refreshSuppliers() {
   saveCache("suppliers", suppliers);
 }
 
+type ProfileRow = {
+  name_key: string;
+  display_name: string;
+  role: string;
+  avatar_color: string;
+  avatar_url: string;
+  updated_at: string;
+};
+function mapProfile(r: ProfileRow): Profile {
+  const color = (AVATAR_COLORS as readonly string[]).includes(r.avatar_color)
+    ? (r.avatar_color as AvatarColor)
+    : "red";
+  return {
+    nameKey: r.name_key,
+    displayName: r.display_name,
+    role: r.role ?? "",
+    avatarColor: color,
+    avatarUrl: r.avatar_url ?? "",
+    updatedAt: new Date(r.updated_at).getTime(),
+  };
+}
+async function refreshProfiles() {
+  const { data, error } = await supabase
+    .from("profiles" as never)
+    .select("*");
+  if (error) return console.error("profiles load", error);
+  const profiles = (data as unknown as ProfileRow[]).map(mapProfile);
+  setState({ profiles });
+  saveCache("profiles", profiles);
+}
+
+function upsertProfileLocal(p: Profile) {
+  const list = state.profiles.filter((x) => x.nameKey !== p.nameKey);
+  const profiles = [...list, p].sort((a, b) => a.displayName.localeCompare(b.displayName));
+  setState({ profiles });
+  saveCache("profiles", profiles);
+}
+
 async function refreshManufacturing() {
   const { data, error } = await supabase
     .from("manufacturing_requests" as never)
