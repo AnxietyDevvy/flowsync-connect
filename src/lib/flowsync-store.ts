@@ -852,6 +852,36 @@ export const store = {
     } });
   },
 
+  // --- Profiles ---
+  async upsertProfile(p: {
+    displayName: string;
+    role?: string;
+    avatarColor?: AvatarColor;
+    avatarUrl?: string;
+  }) {
+    const name = p.displayName.trim();
+    if (!name) return;
+    const key = nameKey(name);
+    const existing = state.profiles.find((x) => x.nameKey === key);
+    const next: Profile = {
+      nameKey: key,
+      displayName: name,
+      role: (p.role ?? existing?.role ?? "").trim(),
+      avatarColor: p.avatarColor ?? existing?.avatarColor ?? pickAvatarColor(name),
+      avatarUrl: p.avatarUrl ?? existing?.avatarUrl ?? "",
+      updatedAt: Date.now(),
+    };
+    upsertProfileLocal(next);
+    await submit({ table: "profiles", action: "upsert", values: {
+      name_key: next.nameKey,
+      display_name: next.displayName,
+      role: next.role,
+      avatar_color: next.avatarColor,
+      avatar_url: next.avatarUrl,
+      updated_at: new Date().toISOString(),
+    } });
+  },
+
   // --- Danger zone ---
   async wipeOrdersByStatus(status: OrderStatus) {
     const { error } = await supabase.from("orders").delete().eq("status", status);
