@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft, User, Settings, Palette, Check } from "lucide-react";
 import { FlowSyncLogo, BptLogo } from "./Logos";
 import { setTheme, useTheme, type Theme } from "@/lib/theme";
+import { SyncStatus } from "./SyncStatus";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +45,7 @@ export function SectionHeader({
           </span>
         </div>
         <div className="flex items-center gap-3">
+          <SyncStatus />
           {userName && (
             <span className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground">
               <User className="h-3.5 w-3.5 text-primary" />

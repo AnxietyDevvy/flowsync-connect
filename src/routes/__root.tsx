@@ -79,6 +79,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "theme-color", content: "#dc2626" },
       { title: "FlowSync — BPT Internal Workflow" },
       { name: "description", content: "Internal workflow app for BPT Office and Production teams." },
       { name: "author", content: "BPT" },
