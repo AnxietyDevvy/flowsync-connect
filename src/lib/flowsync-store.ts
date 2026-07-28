@@ -520,7 +520,20 @@ export const store = {
     createdBy: string;
     assignedTo?: string;
   }) {
-    const { error } = await supabase.from("orders").insert({
+    const id = newId();
+    upsertOrder({
+      id,
+      orderNumber: o.orderNumber,
+      date: o.date,
+      products: o.products,
+      notes: o.notes,
+      status: "draft",
+      createdBy: o.createdBy,
+      assignedTo: o.assignedTo ?? "",
+      createdAt: Date.now(),
+    });
+    await submit({ table: "orders", action: "insert", values: {
+      id,
       order_number: o.orderNumber,
       order_date: o.date,
       products: o.products,
@@ -528,40 +541,29 @@ export const store = {
       status: "draft",
       created_by: o.createdBy,
       assigned_to: o.assignedTo ?? "",
-    });
-    if (error) console.error("addOrder", error);
-    await refreshOrders();
+    } });
   },
   async deleteOrder(id: string) {
-    const { error } = await supabase.from("orders").delete().eq("id", id);
-    if (error) console.error("deleteOrder", error);
-    await refreshOrders();
+    removeOrder(id);
+    await submit({ table: "orders", action: "delete", match: { col: "id", val: id } });
   },
   async sendOrder(id: string) {
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: "sent", sent_at: new Date().toISOString() })
-      .eq("id", id);
-    if (error) console.error("sendOrder", error);
-    await decrementStockForOrder(id);
-    await refreshOrders();
-    await refreshProducts();
+    patchOrder(id, { status: "sent" });
+    decrementStockForOrder(id);
+    await submit({ table: "orders", action: "update",
+      values: { status: "sent", sent_at: new Date().toISOString() },
+      match: { col: "id", val: id } });
   },
   async assignOrder(id: string, assignedTo: string) {
-    const { error } = await supabase
-      .from("orders")
-      .update({ assigned_to: assignedTo })
-      .eq("id", id);
-    if (error) console.error("assignOrder", error);
-    await refreshOrders();
+    patchOrder(id, { assignedTo });
+    await submit({ table: "orders", action: "update",
+      values: { assigned_to: assignedTo }, match: { col: "id", val: id } });
   },
   async completeOrder(id: string) {
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: "completed", completed_at: new Date().toISOString() })
-      .eq("id", id);
-    if (error) console.error("completeOrder", error);
-    await refreshOrders();
+    patchOrder(id, { status: "completed", completedAt: Date.now() });
+    await submit({ table: "orders", action: "update",
+      values: { status: "completed", completed_at: new Date().toISOString() },
+      match: { col: "id", val: id } });
   },
   async updateOrderStatus(id: string, status: OrderStatus) {
     const patch: {
@@ -578,9 +580,8 @@ export const store = {
     } else if (status === "completed") {
       patch.completed_at = new Date().toISOString();
     }
-    const { error } = await supabase.from("orders").update(patch).eq("id", id);
-    if (error) console.error("updateOrderStatus", error);
-    await refreshOrders();
+    patchOrder(id, { status, completedAt: status === "completed" ? Date.now() : undefined });
+    await submit({ table: "orders", action: "update", values: patch, match: { col: "id", val: id } });
   },
 
   async addSupply(s: {
@@ -590,16 +591,15 @@ export const store = {
     notes: string;
     status: SupplyStatus;
   }) {
-    const { error } = await supabase.from("supplies").insert({
-      name: s.name,
-      stock: s.stock,
-      reorder: s.reorder,
-      notes: s.notes,
-      status: s.status,
-      noticed_by_office: false,
+    const id = newId();
+    upsertSupply({
+      id, name: s.name, stock: s.stock, reorder: s.reorder, notes: s.notes,
+      status: s.status, noticedByOffice: false, noticedBy: "", updatedAt: Date.now(),
     });
-    if (error) console.error("addSupply", error);
-    await refreshSupplies();
+    await submit({ table: "supplies", action: "insert", values: {
+      id, name: s.name, stock: s.stock, reorder: s.reorder, notes: s.notes,
+      status: s.status, noticed_by_office: false,
+    } });
   },
   async updateSupply(
     id: string,
@@ -622,14 +622,12 @@ export const store = {
     if (patch.status !== undefined) row.status = patch.status;
     if (patch.noticedByOffice !== undefined) row.noticed_by_office = patch.noticedByOffice;
     if (patch.noticedBy !== undefined) row.noticed_by = patch.noticedBy;
-    const { error } = await supabase.from("supplies").update(row).eq("id", id);
-    if (error) console.error("updateSupply", error);
-    await refreshSupplies();
+    patchSupply(id, patch);
+    await submit({ table: "supplies", action: "update", values: row, match: { col: "id", val: id } });
   },
   async deleteSupply(id: string) {
-    const { error } = await supabase.from("supplies").delete().eq("id", id);
-    if (error) console.error("deleteSupply", error);
-    await refreshSupplies();
+    removeSupply(id);
+    await submit({ table: "supplies", action: "delete", match: { col: "id", val: id } });
   },
   async noticeSupply(id: string, by: string) {
     await this.updateSupply(id, { noticedByOffice: true, noticedBy: by });
@@ -639,11 +637,10 @@ export const store = {
     const trimmed = name.trim();
     const cat = category.trim() || "Uncategorized";
     if (!trimmed) return;
-    const { error } = await supabase
-      .from("products")
-      .insert({ name: trimmed, category: cat, is_custom: true });
-    if (error) console.error("addProduct", error);
-    await refreshProducts();
+    const id = newId();
+    upsertProduct({ id, name: trimmed, category: cat, isCustom: true, stock: 0, lowStock: 0, materials: [] });
+    await submit({ table: "products", action: "insert",
+      values: { id, name: trimmed, category: cat, is_custom: true } });
   },
   async updateProduct(
     id: string,
@@ -661,22 +658,19 @@ export const store = {
     if (patch.materials !== undefined) row.materials = patch.materials;
     if (patch.name !== undefined) row.name = patch.name;
     if (patch.category !== undefined) row.category = patch.category;
-    const { error } = await supabase.from("products").update(row).eq("id", id);
-    if (error) console.error("updateProduct", error);
-    await refreshProducts();
+    patchProduct(id, patch);
+    await submit({ table: "products", action: "update", values: row, match: { col: "id", val: id } });
   },
   async deleteProduct(id: string) {
     // Server allows any delete; guard client-side to only remove custom entries.
     const target = state.products.find((p) => p.id === id);
     if (!target || !target.isCustom) return;
-    const { error } = await supabase.from("products").delete().eq("id", id);
-    if (error) console.error("deleteProduct", error);
-    await refreshProducts();
+    removeProduct(id);
+    await submit({ table: "products", action: "delete", match: { col: "id", val: id } });
   },
   async forceDeleteProduct(id: string) {
-    const { error } = await supabase.from("products").delete().eq("id", id);
-    if (error) console.error("forceDeleteProduct", error);
-    await refreshProducts();
+    removeProduct(id);
+    await submit({ table: "products", action: "delete", match: { col: "id", val: id } });
   },
 
   async addSupplier(s: {
@@ -686,15 +680,11 @@ export const store = {
     notes: string;
     createdBy: string;
   }) {
-    const { error } = await supabase.from("suppliers").insert({
-      name: s.name,
-      email: s.email,
-      website: s.website,
-      notes: s.notes,
-      created_by: s.createdBy,
-    });
-    if (error) console.error("addSupplier", error);
-    await refreshSuppliers();
+    const id = newId();
+    upsertSupplier({ id, ...s, updatedAt: Date.now() });
+    await submit({ table: "suppliers", action: "insert", values: {
+      id, name: s.name, email: s.email, website: s.website, notes: s.notes, created_by: s.createdBy,
+    } });
   },
   async updateSupplier(
     id: string,
@@ -711,55 +701,42 @@ export const store = {
     if (patch.email !== undefined) row.email = patch.email;
     if (patch.website !== undefined) row.website = patch.website;
     if (patch.notes !== undefined) row.notes = patch.notes;
-    const { error } = await supabase.from("suppliers").update(row).eq("id", id);
-    if (error) console.error("updateSupplier", error);
-    await refreshSuppliers();
+    patchSupplier(id, patch);
+    await submit({ table: "suppliers", action: "update", values: row, match: { col: "id", val: id } });
   },
   async deleteSupplier(id: string) {
-    const { error } = await supabase.from("suppliers").delete().eq("id", id);
-    if (error) console.error("deleteSupplier", error);
-    await refreshSuppliers();
+    removeSupplier(id);
+    await submit({ table: "suppliers", action: "delete", match: { col: "id", val: id } });
   },
 
   async sendToManufacturing(
     supply: { id: string; name: string; notes?: string },
     requestedBy: string,
   ) {
-    const { error } = await supabase.from("manufacturing_requests" as never).insert({
-      supply_id: supply.id,
-      supply_name: supply.name,
-      notes: supply.notes ?? "",
-      status: "pending",
-      requested_by: requestedBy,
-    } as never);
-    if (error) console.error("sendToManufacturing", error);
-    await refreshManufacturing();
+    const id = newId();
+    upsertManufacturing({
+      id, supplyId: supply.id, supplyName: supply.name, notes: supply.notes ?? "",
+      status: "pending", requestedBy, requestedAt: Date.now(),
+      startedBy: "", completedBy: "",
+    });
+    await submit({ table: "manufacturing_requests", action: "insert", values: {
+      id, supply_id: supply.id, supply_name: supply.name, notes: supply.notes ?? "",
+      status: "pending", requested_by: requestedBy,
+    } });
   },
   async startManufacturing(id: string, by: string) {
-    const { error } = await supabase
-      .from("manufacturing_requests" as never)
-      .update({
-        status: "in_progress",
-        started_by: by,
-        started_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as never)
-      .eq("id", id);
-    if (error) console.error("startManufacturing", error);
-    await refreshManufacturing();
+    patchManufacturing(id, { status: "in_progress", startedBy: by, startedAt: Date.now() });
+    await submit({ table: "manufacturing_requests", action: "update", values: {
+      status: "in_progress", started_by: by,
+      started_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }, match: { col: "id", val: id } });
   },
   async completeManufacturing(id: string, by: string) {
-    const { error } = await supabase
-      .from("manufacturing_requests" as never)
-      .update({
-        status: "completed",
-        completed_by: by,
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as never)
-      .eq("id", id);
-    if (error) console.error("completeManufacturing", error);
-    await refreshManufacturing();
+    patchManufacturing(id, { status: "completed", completedBy: by, completedAt: Date.now() });
+    await submit({ table: "manufacturing_requests", action: "update", values: {
+      status: "completed", completed_by: by,
+      completed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }, match: { col: "id", val: id } });
   },
   async updateManufacturingStatus(id: string, status: ManufacturingStatus) {
     const patch: {
@@ -777,29 +754,22 @@ export const store = {
     } else if (status === "completed") {
       patch.completed_at = new Date().toISOString();
     }
-    const { error } = await supabase
-      .from("manufacturing_requests" as never)
-      .update(patch as never)
-      .eq("id", id);
-    if (error) console.error("updateManufacturingStatus", error);
-    await refreshManufacturing();
+    patchManufacturing(id, { status });
+    await submit({ table: "manufacturing_requests", action: "update", values: patch, match: { col: "id", val: id } });
   },
   async deleteManufacturing(id: string) {
-    const { error } = await supabase
-      .from("manufacturing_requests" as never)
-      .delete()
-      .eq("id", id);
-    if (error) console.error("deleteManufacturing", error);
-    await refreshManufacturing();
+    removeManufacturing(id);
+    await submit({ table: "manufacturing_requests", action: "delete", match: { col: "id", val: id } });
   },
 
   // --- Settings ---
   async setSetting(key: string, value: unknown) {
-    const { error } = await supabase
-      .from("app_settings" as never)
-      .upsert({ key, value, updated_at: new Date().toISOString() } as never);
-    if (error) console.error("setSetting", error);
-    await refreshSettings();
+    const map = { ...state.settings, [key]: value };
+    setState({ settings: map });
+    saveCache("settings", map);
+    await submit({ table: "app_settings", action: "upsert", values: {
+      key, value, updated_at: new Date().toISOString(),
+    } });
   },
 
   // --- Danger zone ---
