@@ -162,12 +162,45 @@ export type ManufacturingRequest = {
   completedAt?: number;
 };
 
+export const AVATAR_COLORS = [
+  "red", "amber", "emerald", "sky", "indigo", "violet", "pink", "slate",
+] as const;
+export type AvatarColor = typeof AVATAR_COLORS[number];
+
+export type Profile = {
+  nameKey: string;
+  displayName: string;
+  role: string;
+  avatarColor: AvatarColor;
+  avatarUrl: string;
+  updatedAt: number;
+};
+
+export function nameKey(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+export function pickAvatarColor(name: string): AvatarColor {
+  const k = nameKey(name);
+  let h = 0;
+  for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+export function initialsFor(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 type State = {
   orders: Order[];
   supplies: Supply[];
   products: CatalogProduct[];
   suppliers: Supplier[];
   manufacturing: ManufacturingRequest[];
+  profiles: Profile[];
   settings: Record<string, unknown>;
   loaded: boolean;
 };
@@ -178,6 +211,7 @@ let state: State = {
   products: [],
   suppliers: [],
   manufacturing: [],
+  profiles: [],
   settings: {},
   loaded: false,
 };
@@ -207,6 +241,7 @@ export function useFlowSync() {
       products: [],
       suppliers: [],
       manufacturing: [],
+      profiles: [],
       settings: {},
       loaded: false,
     }),
@@ -351,6 +386,7 @@ function ensureBootstrap() {
     products: readCache<CatalogProduct[]>("products", []),
     suppliers: readCache<Supplier[]>("suppliers", []),
     manufacturing: readCache<ManufacturingRequest[]>("manufacturing", []),
+    profiles: readCache<Profile[]>("profiles", []),
     settings: readCache<Record<string, unknown>>("settings", {}),
     loaded: true,
   });
@@ -394,6 +430,11 @@ function ensureBootstrap() {
       { event: "*", schema: "public", table: "app_settings" },
       () => refreshSettings(),
     )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "profiles" },
+      () => refreshProfiles(),
+    )
     .subscribe();
   // Channel intentionally lives for app lifetime.
   void channel;
@@ -421,6 +462,7 @@ async function loadAll() {
     refreshSuppliers(),
     refreshManufacturing(),
     refreshSettings(),
+    refreshProfiles(),
   ]);
   setState({ loaded: true });
 }
@@ -466,6 +508,44 @@ async function refreshSuppliers() {
   const suppliers = (data as SupplierRow[]).map(mapSupplier);
   setState({ suppliers });
   saveCache("suppliers", suppliers);
+}
+
+type ProfileRow = {
+  name_key: string;
+  display_name: string;
+  role: string;
+  avatar_color: string;
+  avatar_url: string;
+  updated_at: string;
+};
+function mapProfile(r: ProfileRow): Profile {
+  const color = (AVATAR_COLORS as readonly string[]).includes(r.avatar_color)
+    ? (r.avatar_color as AvatarColor)
+    : "red";
+  return {
+    nameKey: r.name_key,
+    displayName: r.display_name,
+    role: r.role ?? "",
+    avatarColor: color,
+    avatarUrl: r.avatar_url ?? "",
+    updatedAt: new Date(r.updated_at).getTime(),
+  };
+}
+async function refreshProfiles() {
+  const { data, error } = await supabase
+    .from("profiles" as never)
+    .select("*");
+  if (error) return console.error("profiles load", error);
+  const profiles = (data as unknown as ProfileRow[]).map(mapProfile);
+  setState({ profiles });
+  saveCache("profiles", profiles);
+}
+
+function upsertProfileLocal(p: Profile) {
+  const list = state.profiles.filter((x) => x.nameKey !== p.nameKey);
+  const profiles = [...list, p].sort((a, b) => a.displayName.localeCompare(b.displayName));
+  setState({ profiles });
+  saveCache("profiles", profiles);
 }
 
 async function refreshManufacturing() {
@@ -772,6 +852,36 @@ export const store = {
     } });
   },
 
+  // --- Profiles ---
+  async upsertProfile(p: {
+    displayName: string;
+    role?: string;
+    avatarColor?: AvatarColor;
+    avatarUrl?: string;
+  }) {
+    const name = p.displayName.trim();
+    if (!name) return;
+    const key = nameKey(name);
+    const existing = state.profiles.find((x) => x.nameKey === key);
+    const next: Profile = {
+      nameKey: key,
+      displayName: name,
+      role: (p.role ?? existing?.role ?? "").trim(),
+      avatarColor: p.avatarColor ?? existing?.avatarColor ?? pickAvatarColor(name),
+      avatarUrl: p.avatarUrl ?? existing?.avatarUrl ?? "",
+      updatedAt: Date.now(),
+    };
+    upsertProfileLocal(next);
+    await submit({ table: "profiles", action: "upsert", values: {
+      name_key: next.nameKey,
+      display_name: next.displayName,
+      role: next.role,
+      avatar_color: next.avatarColor,
+      avatar_url: next.avatarUrl,
+      updated_at: new Date().toISOString(),
+    } });
+  },
+
   // --- Danger zone ---
   async wipeOrdersByStatus(status: OrderStatus) {
     const { error } = await supabase.from("orders").delete().eq("status", status);
@@ -890,4 +1000,18 @@ export function setSavedOfficeName(name: string) {
   if (typeof window === "undefined") return;
   if (name) localStorage.setItem(OFFICE_USERNAME_KEY, name);
   else localStorage.removeItem(OFFICE_USERNAME_KEY);
+}
+
+export function findProfile(name: string): Profile | undefined {
+  if (!name) return undefined;
+  const k = nameKey(name);
+  return state.profiles.find((p) => p.nameKey === k);
+}
+
+/** Hook to read a person's profile by display name, reactive to store updates. */
+export function useProfile(name: string): Profile | undefined {
+  const { profiles } = useFlowSync();
+  if (!name) return undefined;
+  const k = nameKey(name);
+  return profiles.find((p) => p.nameKey === k);
 }

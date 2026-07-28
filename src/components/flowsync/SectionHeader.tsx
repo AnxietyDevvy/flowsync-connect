@@ -1,8 +1,12 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, User, Settings, Palette, Check } from "lucide-react";
+import { ArrowLeft, Settings, Palette, Check } from "lucide-react";
 import { FlowSyncLogo, BptLogo } from "./Logos";
 import { setTheme, useTheme, type Theme } from "@/lib/theme";
 import { SyncStatus } from "./SyncStatus";
+import { Avatar } from "./PersonBadge";
+import { ProfileEditor } from "./ProfileEditor";
+import { useProfile } from "@/lib/flowsync-store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +26,8 @@ export function SectionHeader({
   onLock?: () => void;
 }) {
   const theme = useTheme();
+  const profile = useProfile(userName ?? "");
+  const [editing, setEditing] = useState(false);
   const themes: { value: Theme; label: string }[] = [
     { value: "red", label: "Red" },
     { value: "light", label: "Light" },
@@ -47,10 +53,25 @@ export function SectionHeader({
         <div className="flex items-center gap-3">
           <SyncStatus />
           {userName && (
-            <span className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground">
-              <User className="h-3.5 w-3.5 text-primary" />
-              {userName}
-            </span>
+            <>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                title="Edit your profile"
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
+              >
+                <Avatar name={profile?.displayName ?? userName} size="sm" />
+                <span className="flex flex-col items-start leading-tight">
+                  <span>{profile?.displayName ?? userName}</span>
+                  {profile?.role && (
+                    <span className="text-[10px] font-normal text-muted-foreground">
+                      {profile.role}
+                    </span>
+                  )}
+                </span>
+              </button>
+              <ProfileEditor name={userName} open={editing} onOpenChange={setEditing} />
+            </>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
