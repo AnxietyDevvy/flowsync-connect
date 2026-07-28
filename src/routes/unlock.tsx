@@ -30,7 +30,6 @@ function UnlockPage() {
     setError(null);
     try {
       const res = await unlock({ data: { password } });
-      if (!ok) {
       if (!res.ok) {
         if (res.retryAfterSeconds) {
           const mins = Math.ceil(res.retryAfterSeconds / 60);
@@ -40,6 +39,7 @@ function UnlockPage() {
         }
         setPassword("");
         return;
+      }
       }
       const target =
         redirect && redirect.startsWith("/") && !redirect.startsWith("/unlock")
