@@ -158,6 +158,36 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          avatar_color: string
+          avatar_url: string
+          created_at: string
+          display_name: string
+          name_key: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_color?: string
+          avatar_url?: string
+          created_at?: string
+          display_name: string
+          name_key: string
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_color?: string
+          avatar_url?: string
+          created_at?: string
+          display_name?: string
+          name_key?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       suppliers: {
         Row: {
           created_at: string
