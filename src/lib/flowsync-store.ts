@@ -1,5 +1,101 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { saveCache, readCache } from "@/lib/offline/cache";
+import { submit, startOutboxFlusher } from "@/lib/offline/outbox";
+
+function newId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// Optimistic local mutators (in-memory state only).
+function upsertOrder(o: Order) {
+  const list = state.orders.filter((x) => x.id !== o.id);
+  setState({ orders: [o, ...list] });
+  saveCache("orders", state.orders);
+}
+function patchOrder(id: string, patch: Partial<Order>) {
+  const orders = state.orders.map((o) => (o.id === id ? { ...o, ...patch } : o));
+  setState({ orders });
+  saveCache("orders", orders);
+}
+function removeOrder(id: string) {
+  const orders = state.orders.filter((o) => o.id !== id);
+  setState({ orders });
+  saveCache("orders", orders);
+}
+function upsertSupply(s: Supply) {
+  const list = state.supplies.filter((x) => x.id !== s.id);
+  const supplies = [s, ...list];
+  setState({ supplies });
+  saveCache("supplies", supplies);
+}
+function patchSupply(id: string, patch: Partial<Supply>) {
+  const supplies = state.supplies.map((s) =>
+    s.id === id ? { ...s, ...patch, updatedAt: Date.now() } : s,
+  );
+  setState({ supplies });
+  saveCache("supplies", supplies);
+}
+function removeSupply(id: string) {
+  const supplies = state.supplies.filter((s) => s.id !== id);
+  setState({ supplies });
+  saveCache("supplies", supplies);
+}
+function upsertProduct(p: CatalogProduct) {
+  const list = state.products.filter((x) => x.id !== p.id);
+  const products = [...list, p].sort((a, b) =>
+    a.category === b.category ? a.name.localeCompare(b.name) : a.category.localeCompare(b.category),
+  );
+  setState({ products });
+  saveCache("products", products);
+}
+function patchProduct(id: string, patch: Partial<CatalogProduct>) {
+  const products = state.products.map((p) => (p.id === id ? { ...p, ...patch } : p));
+  setState({ products });
+  saveCache("products", products);
+}
+function removeProduct(id: string) {
+  const products = state.products.filter((p) => p.id !== id);
+  setState({ products });
+  saveCache("products", products);
+}
+function upsertSupplier(s: Supplier) {
+  const list = state.suppliers.filter((x) => x.id !== s.id);
+  const suppliers = [...list, s].sort((a, b) => a.name.localeCompare(b.name));
+  setState({ suppliers });
+  saveCache("suppliers", suppliers);
+}
+function patchSupplier(id: string, patch: Partial<Supplier>) {
+  const suppliers = state.suppliers.map((s) =>
+    s.id === id ? { ...s, ...patch, updatedAt: Date.now() } : s,
+  );
+  setState({ suppliers });
+  saveCache("suppliers", suppliers);
+}
+function removeSupplier(id: string) {
+  const suppliers = state.suppliers.filter((s) => s.id !== id);
+  setState({ suppliers });
+  saveCache("suppliers", suppliers);
+}
+function upsertManufacturing(m: ManufacturingRequest) {
+  const list = state.manufacturing.filter((x) => x.id !== m.id);
+  const manufacturing = [m, ...list];
+  setState({ manufacturing });
+  saveCache("manufacturing", manufacturing);
+}
+function patchManufacturing(id: string, patch: Partial<ManufacturingRequest>) {
+  const manufacturing = state.manufacturing.map((m) =>
+    m.id === id ? { ...m, ...patch } : m,
+  );
+  setState({ manufacturing });
+  saveCache("manufacturing", manufacturing);
+}
+function removeManufacturing(id: string) {
+  const manufacturing = state.manufacturing.filter((m) => m.id !== id);
+  setState({ manufacturing });
+  saveCache("manufacturing", manufacturing);
+}
 
 export type OrderStatus = "draft" | "sent" | "completed";
 export type Product = { id: string; name: string; quantity: string };
@@ -248,6 +344,20 @@ let bootstrapped = false;
 function ensureBootstrap() {
   if (bootstrapped || typeof window === "undefined") return;
   bootstrapped = true;
+  // Hydrate from cache first so the UI works offline before any network call.
+  setState({
+    orders: readCache<Order[]>("orders", []),
+    supplies: readCache<Supply[]>("supplies", []),
+    products: readCache<CatalogProduct[]>("products", []),
+    suppliers: readCache<Supplier[]>("suppliers", []),
+    manufacturing: readCache<ManufacturingRequest[]>("manufacturing", []),
+    settings: readCache<Record<string, unknown>>("settings", {}),
+    loaded: true,
+  });
+  // Start outbox flusher; when a flush drains pending writes, reload from network.
+  startOutboxFlusher(() => {
+    void loadAll();
+  });
   void (async () => {
     await ensureAnonSession();
     await loadAll();
@@ -321,7 +431,9 @@ async function refreshOrders() {
     .select("*")
     .order("created_at", { ascending: false });
   if (error) return console.error("orders load", error);
-  setState({ orders: (data as OrderRow[]).map(mapOrder) });
+  const orders = (data as OrderRow[]).map(mapOrder);
+  setState({ orders });
+  saveCache("orders", orders);
 }
 async function refreshSupplies() {
   const { data, error } = await supabase
@@ -329,7 +441,9 @@ async function refreshSupplies() {
     .select("*")
     .order("updated_at", { ascending: false });
   if (error) return console.error("supplies load", error);
-  setState({ supplies: (data as SupplyRow[]).map(mapSupply) });
+  const supplies = (data as SupplyRow[]).map(mapSupply);
+  setState({ supplies });
+  saveCache("supplies", supplies);
 }
 async function refreshProducts() {
   const { data, error } = await supabase
@@ -338,7 +452,9 @@ async function refreshProducts() {
     .order("category")
     .order("name");
   if (error) return console.error("products load", error);
-  setState({ products: (data as ProductRow[]).map(mapProduct) });
+  const products = (data as ProductRow[]).map(mapProduct);
+  setState({ products });
+  saveCache("products", products);
 }
 
 async function refreshSuppliers() {
@@ -347,7 +463,9 @@ async function refreshSuppliers() {
     .select("*")
     .order("name");
   if (error) return console.error("suppliers load", error);
-  setState({ suppliers: (data as SupplierRow[]).map(mapSupplier) });
+  const suppliers = (data as SupplierRow[]).map(mapSupplier);
+  setState({ suppliers });
+  saveCache("suppliers", suppliers);
 }
 
 async function refreshManufacturing() {
@@ -356,9 +474,9 @@ async function refreshManufacturing() {
     .select("*")
     .order("requested_at", { ascending: false });
   if (error) return console.error("manufacturing load", error);
-  setState({
-    manufacturing: (data as unknown as ManufacturingRow[]).map(mapManufacturing),
-  });
+  const manufacturing = (data as unknown as ManufacturingRow[]).map(mapManufacturing);
+  setState({ manufacturing });
+  saveCache("manufacturing", manufacturing);
 }
 
 async function refreshSettings() {
@@ -371,28 +489,24 @@ async function refreshSettings() {
     map[row.key] = row.value;
   }
   setState({ settings: map });
+  saveCache("settings", map);
 }
 
 // Decrement product stock levels for an order's line items.
 // Matches by product name (catalog is small; safe client-side).
-async function decrementStockForOrder(orderId: string) {
+function decrementStockForOrder(orderId: string) {
   const order = state.orders.find((o) => o.id === orderId);
   if (!order) return;
   const byName = new Map(state.products.map((p) => [p.name, p]));
-  await Promise.all(
-    order.products.map(async (line) => {
-      const prod = byName.get(line.name);
-      if (!prod) return;
-      const qty = parseInt(line.quantity, 10);
-      if (!Number.isFinite(qty) || qty <= 0) return;
-      const newStock = (prod.stock ?? 0) - qty;
-      const { error } = await supabase
-        .from("products")
-        .update({ stock: newStock })
-        .eq("id", prod.id);
-      if (error) console.error("decrement stock", error);
-    }),
-  );
+  for (const line of order.products) {
+    const prod = byName.get(line.name);
+    if (!prod) continue;
+    const qty = parseInt(line.quantity, 10);
+    if (!Number.isFinite(qty) || qty <= 0) continue;
+    const newStock = (prod.stock ?? 0) - qty;
+    patchProduct(prod.id, { stock: newStock });
+    void submit({ table: "products", action: "update", values: { stock: newStock }, match: { col: "id", val: prod.id } });
+  }
 }
 
 // --- Mutations (fire-and-forget; realtime brings truth back) ---
@@ -406,7 +520,20 @@ export const store = {
     createdBy: string;
     assignedTo?: string;
   }) {
-    const { error } = await supabase.from("orders").insert({
+    const id = newId();
+    upsertOrder({
+      id,
+      orderNumber: o.orderNumber,
+      date: o.date,
+      products: o.products,
+      notes: o.notes,
+      status: "draft",
+      createdBy: o.createdBy,
+      assignedTo: o.assignedTo ?? "",
+      createdAt: Date.now(),
+    });
+    await submit({ table: "orders", action: "insert", values: {
+      id,
       order_number: o.orderNumber,
       order_date: o.date,
       products: o.products,
@@ -414,40 +541,29 @@ export const store = {
       status: "draft",
       created_by: o.createdBy,
       assigned_to: o.assignedTo ?? "",
-    });
-    if (error) console.error("addOrder", error);
-    await refreshOrders();
+    } });
   },
   async deleteOrder(id: string) {
-    const { error } = await supabase.from("orders").delete().eq("id", id);
-    if (error) console.error("deleteOrder", error);
-    await refreshOrders();
+    removeOrder(id);
+    await submit({ table: "orders", action: "delete", match: { col: "id", val: id } });
   },
   async sendOrder(id: string) {
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: "sent", sent_at: new Date().toISOString() })
-      .eq("id", id);
-    if (error) console.error("sendOrder", error);
-    await decrementStockForOrder(id);
-    await refreshOrders();
-    await refreshProducts();
+    patchOrder(id, { status: "sent" });
+    decrementStockForOrder(id);
+    await submit({ table: "orders", action: "update",
+      values: { status: "sent", sent_at: new Date().toISOString() },
+      match: { col: "id", val: id } });
   },
   async assignOrder(id: string, assignedTo: string) {
-    const { error } = await supabase
-      .from("orders")
-      .update({ assigned_to: assignedTo })
-      .eq("id", id);
-    if (error) console.error("assignOrder", error);
-    await refreshOrders();
+    patchOrder(id, { assignedTo });
+    await submit({ table: "orders", action: "update",
+      values: { assigned_to: assignedTo }, match: { col: "id", val: id } });
   },
   async completeOrder(id: string) {
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: "completed", completed_at: new Date().toISOString() })
-      .eq("id", id);
-    if (error) console.error("completeOrder", error);
-    await refreshOrders();
+    patchOrder(id, { status: "completed", completedAt: Date.now() });
+    await submit({ table: "orders", action: "update",
+      values: { status: "completed", completed_at: new Date().toISOString() },
+      match: { col: "id", val: id } });
   },
   async updateOrderStatus(id: string, status: OrderStatus) {
     const patch: {
@@ -464,9 +580,8 @@ export const store = {
     } else if (status === "completed") {
       patch.completed_at = new Date().toISOString();
     }
-    const { error } = await supabase.from("orders").update(patch).eq("id", id);
-    if (error) console.error("updateOrderStatus", error);
-    await refreshOrders();
+    patchOrder(id, { status, completedAt: status === "completed" ? Date.now() : undefined });
+    await submit({ table: "orders", action: "update", values: patch, match: { col: "id", val: id } });
   },
 
   async addSupply(s: {
@@ -476,16 +591,15 @@ export const store = {
     notes: string;
     status: SupplyStatus;
   }) {
-    const { error } = await supabase.from("supplies").insert({
-      name: s.name,
-      stock: s.stock,
-      reorder: s.reorder,
-      notes: s.notes,
-      status: s.status,
-      noticed_by_office: false,
+    const id = newId();
+    upsertSupply({
+      id, name: s.name, stock: s.stock, reorder: s.reorder, notes: s.notes,
+      status: s.status, noticedByOffice: false, noticedBy: "", updatedAt: Date.now(),
     });
-    if (error) console.error("addSupply", error);
-    await refreshSupplies();
+    await submit({ table: "supplies", action: "insert", values: {
+      id, name: s.name, stock: s.stock, reorder: s.reorder, notes: s.notes,
+      status: s.status, noticed_by_office: false,
+    } });
   },
   async updateSupply(
     id: string,
@@ -508,14 +622,12 @@ export const store = {
     if (patch.status !== undefined) row.status = patch.status;
     if (patch.noticedByOffice !== undefined) row.noticed_by_office = patch.noticedByOffice;
     if (patch.noticedBy !== undefined) row.noticed_by = patch.noticedBy;
-    const { error } = await supabase.from("supplies").update(row).eq("id", id);
-    if (error) console.error("updateSupply", error);
-    await refreshSupplies();
+    patchSupply(id, patch);
+    await submit({ table: "supplies", action: "update", values: row, match: { col: "id", val: id } });
   },
   async deleteSupply(id: string) {
-    const { error } = await supabase.from("supplies").delete().eq("id", id);
-    if (error) console.error("deleteSupply", error);
-    await refreshSupplies();
+    removeSupply(id);
+    await submit({ table: "supplies", action: "delete", match: { col: "id", val: id } });
   },
   async noticeSupply(id: string, by: string) {
     await this.updateSupply(id, { noticedByOffice: true, noticedBy: by });
@@ -525,11 +637,10 @@ export const store = {
     const trimmed = name.trim();
     const cat = category.trim() || "Uncategorized";
     if (!trimmed) return;
-    const { error } = await supabase
-      .from("products")
-      .insert({ name: trimmed, category: cat, is_custom: true });
-    if (error) console.error("addProduct", error);
-    await refreshProducts();
+    const id = newId();
+    upsertProduct({ id, name: trimmed, category: cat, isCustom: true, stock: 0, lowStock: 0, materials: [] });
+    await submit({ table: "products", action: "insert",
+      values: { id, name: trimmed, category: cat, is_custom: true } });
   },
   async updateProduct(
     id: string,
@@ -547,22 +658,19 @@ export const store = {
     if (patch.materials !== undefined) row.materials = patch.materials;
     if (patch.name !== undefined) row.name = patch.name;
     if (patch.category !== undefined) row.category = patch.category;
-    const { error } = await supabase.from("products").update(row).eq("id", id);
-    if (error) console.error("updateProduct", error);
-    await refreshProducts();
+    patchProduct(id, patch);
+    await submit({ table: "products", action: "update", values: row, match: { col: "id", val: id } });
   },
   async deleteProduct(id: string) {
     // Server allows any delete; guard client-side to only remove custom entries.
     const target = state.products.find((p) => p.id === id);
     if (!target || !target.isCustom) return;
-    const { error } = await supabase.from("products").delete().eq("id", id);
-    if (error) console.error("deleteProduct", error);
-    await refreshProducts();
+    removeProduct(id);
+    await submit({ table: "products", action: "delete", match: { col: "id", val: id } });
   },
   async forceDeleteProduct(id: string) {
-    const { error } = await supabase.from("products").delete().eq("id", id);
-    if (error) console.error("forceDeleteProduct", error);
-    await refreshProducts();
+    removeProduct(id);
+    await submit({ table: "products", action: "delete", match: { col: "id", val: id } });
   },
 
   async addSupplier(s: {
@@ -572,15 +680,11 @@ export const store = {
     notes: string;
     createdBy: string;
   }) {
-    const { error } = await supabase.from("suppliers").insert({
-      name: s.name,
-      email: s.email,
-      website: s.website,
-      notes: s.notes,
-      created_by: s.createdBy,
-    });
-    if (error) console.error("addSupplier", error);
-    await refreshSuppliers();
+    const id = newId();
+    upsertSupplier({ id, ...s, updatedAt: Date.now() });
+    await submit({ table: "suppliers", action: "insert", values: {
+      id, name: s.name, email: s.email, website: s.website, notes: s.notes, created_by: s.createdBy,
+    } });
   },
   async updateSupplier(
     id: string,
@@ -597,55 +701,42 @@ export const store = {
     if (patch.email !== undefined) row.email = patch.email;
     if (patch.website !== undefined) row.website = patch.website;
     if (patch.notes !== undefined) row.notes = patch.notes;
-    const { error } = await supabase.from("suppliers").update(row).eq("id", id);
-    if (error) console.error("updateSupplier", error);
-    await refreshSuppliers();
+    patchSupplier(id, patch);
+    await submit({ table: "suppliers", action: "update", values: row, match: { col: "id", val: id } });
   },
   async deleteSupplier(id: string) {
-    const { error } = await supabase.from("suppliers").delete().eq("id", id);
-    if (error) console.error("deleteSupplier", error);
-    await refreshSuppliers();
+    removeSupplier(id);
+    await submit({ table: "suppliers", action: "delete", match: { col: "id", val: id } });
   },
 
   async sendToManufacturing(
     supply: { id: string; name: string; notes?: string },
     requestedBy: string,
   ) {
-    const { error } = await supabase.from("manufacturing_requests" as never).insert({
-      supply_id: supply.id,
-      supply_name: supply.name,
-      notes: supply.notes ?? "",
-      status: "pending",
-      requested_by: requestedBy,
-    } as never);
-    if (error) console.error("sendToManufacturing", error);
-    await refreshManufacturing();
+    const id = newId();
+    upsertManufacturing({
+      id, supplyId: supply.id, supplyName: supply.name, notes: supply.notes ?? "",
+      status: "pending", requestedBy, requestedAt: Date.now(),
+      startedBy: "", completedBy: "",
+    });
+    await submit({ table: "manufacturing_requests", action: "insert", values: {
+      id, supply_id: supply.id, supply_name: supply.name, notes: supply.notes ?? "",
+      status: "pending", requested_by: requestedBy,
+    } });
   },
   async startManufacturing(id: string, by: string) {
-    const { error } = await supabase
-      .from("manufacturing_requests" as never)
-      .update({
-        status: "in_progress",
-        started_by: by,
-        started_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as never)
-      .eq("id", id);
-    if (error) console.error("startManufacturing", error);
-    await refreshManufacturing();
+    patchManufacturing(id, { status: "in_progress", startedBy: by, startedAt: Date.now() });
+    await submit({ table: "manufacturing_requests", action: "update", values: {
+      status: "in_progress", started_by: by,
+      started_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }, match: { col: "id", val: id } });
   },
   async completeManufacturing(id: string, by: string) {
-    const { error } = await supabase
-      .from("manufacturing_requests" as never)
-      .update({
-        status: "completed",
-        completed_by: by,
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as never)
-      .eq("id", id);
-    if (error) console.error("completeManufacturing", error);
-    await refreshManufacturing();
+    patchManufacturing(id, { status: "completed", completedBy: by, completedAt: Date.now() });
+    await submit({ table: "manufacturing_requests", action: "update", values: {
+      status: "completed", completed_by: by,
+      completed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }, match: { col: "id", val: id } });
   },
   async updateManufacturingStatus(id: string, status: ManufacturingStatus) {
     const patch: {
@@ -663,29 +754,22 @@ export const store = {
     } else if (status === "completed") {
       patch.completed_at = new Date().toISOString();
     }
-    const { error } = await supabase
-      .from("manufacturing_requests" as never)
-      .update(patch as never)
-      .eq("id", id);
-    if (error) console.error("updateManufacturingStatus", error);
-    await refreshManufacturing();
+    patchManufacturing(id, { status });
+    await submit({ table: "manufacturing_requests", action: "update", values: patch, match: { col: "id", val: id } });
   },
   async deleteManufacturing(id: string) {
-    const { error } = await supabase
-      .from("manufacturing_requests" as never)
-      .delete()
-      .eq("id", id);
-    if (error) console.error("deleteManufacturing", error);
-    await refreshManufacturing();
+    removeManufacturing(id);
+    await submit({ table: "manufacturing_requests", action: "delete", match: { col: "id", val: id } });
   },
 
   // --- Settings ---
   async setSetting(key: string, value: unknown) {
-    const { error } = await supabase
-      .from("app_settings" as never)
-      .upsert({ key, value, updated_at: new Date().toISOString() } as never);
-    if (error) console.error("setSetting", error);
-    await refreshSettings();
+    const map = { ...state.settings, [key]: value };
+    setState({ settings: map });
+    saveCache("settings", map);
+    await submit({ table: "app_settings", action: "upsert", values: {
+      key, value, updated_at: new Date().toISOString(),
+    } });
   },
 
   // --- Danger zone ---
