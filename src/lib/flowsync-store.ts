@@ -162,12 +162,45 @@ export type ManufacturingRequest = {
   completedAt?: number;
 };
 
+export const AVATAR_COLORS = [
+  "red", "amber", "emerald", "sky", "indigo", "violet", "pink", "slate",
+] as const;
+export type AvatarColor = typeof AVATAR_COLORS[number];
+
+export type Profile = {
+  nameKey: string;
+  displayName: string;
+  role: string;
+  avatarColor: AvatarColor;
+  avatarUrl: string;
+  updatedAt: number;
+};
+
+export function nameKey(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+export function pickAvatarColor(name: string): AvatarColor {
+  const k = nameKey(name);
+  let h = 0;
+  for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+export function initialsFor(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 type State = {
   orders: Order[];
   supplies: Supply[];
   products: CatalogProduct[];
   suppliers: Supplier[];
   manufacturing: ManufacturingRequest[];
+  profiles: Profile[];
   settings: Record<string, unknown>;
   loaded: boolean;
 };
@@ -178,6 +211,7 @@ let state: State = {
   products: [],
   suppliers: [],
   manufacturing: [],
+  profiles: [],
   settings: {},
   loaded: false,
 };
