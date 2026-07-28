@@ -2,7 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { useSession } from "@tanstack/react-start/server";
 import { createHash, timingSafeEqual } from "node:crypto";
 
-type GateSession = { unlocked?: boolean };
+type GateSession = {
+  unlocked?: boolean;
+  failed?: number;
+  lockedUntil?: number;
+};
+
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 function getSessionConfig() {
   const password = process.env.SESSION_SECRET;
@@ -36,14 +43,28 @@ export const unlockSite = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const expected = process.env.SITE_PASSWORD;
     if (!expected) throw new Error("SITE_PASSWORD is not set");
+    const session = await useSession<GateSession>(getSessionConfig());
+    const now = Date.now();
+    const lockedUntil = session.data.lockedUntil ?? 0;
+    if (lockedUntil > now) {
+      return {
+        ok: false as const,
+        retryAfterSeconds: Math.ceil((lockedUntil - now) / 1000),
+      };
+    }
     if (typeof data.password !== "string" || data.password.length === 0 || data.password.length > 200) {
       return { ok: false as const };
     }
     if (!passwordMatches(data.password, expected)) {
+      const failed = (session.data.failed ?? 0) + 1;
+      if (failed >= MAX_ATTEMPTS) {
+        await session.update({ failed: 0, lockedUntil: now + LOCKOUT_MS });
+        return { ok: false as const, retryAfterSeconds: Math.ceil(LOCKOUT_MS / 1000) };
+      }
+      await session.update({ failed });
       return { ok: false as const };
     }
-    const session = await useSession<GateSession>(getSessionConfig());
-    await session.update({ unlocked: true });
+    await session.update({ unlocked: true, failed: 0, lockedUntil: 0 });
     return { ok: true as const };
   });
 
