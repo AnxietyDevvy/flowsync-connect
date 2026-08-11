@@ -17,6 +17,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { AlertTriangle, Download, Upload, Lock, Trash2 } from "lucide-react";
 import { Overview, DataTables, ActivityLog } from "./_gated.admin";
+import { CompaniesManager } from "@/components/flowsync/CompaniesManager";
 
 export const Route = createFileRoute("/_gated/dev")({
   component: DevPage,
@@ -82,6 +83,7 @@ function DevApp({ onLock }: { onLock: () => void }) {
             <TabsTrigger value="data">Data tables</TabsTrigger>
             <TabsTrigger value="activity">Activity</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
+            <TabsTrigger value="companies">Companies</TabsTrigger>
             <TabsTrigger value="danger" className="text-destructive">Danger zone</TabsTrigger>
           </TabsList>
           <TabsContent value="dashboard" className="mt-6">
@@ -107,6 +109,9 @@ function DevApp({ onLock }: { onLock: () => void }) {
           </TabsContent>
           <TabsContent value="settings" className="mt-6">
             <DevSettings />
+          </TabsContent>
+          <TabsContent value="companies" className="mt-6">
+            <CompaniesManager />
           </TabsContent>
           <TabsContent value="danger" className="mt-6">
             <DevDangerZone />
