@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { FlowSyncLogo } from "@/components/flowsync/Logos";
 import { useIdle } from "@/hooks/use-idle";
+import idleSpriteAsset from "@/assets/idle-sprite.png.asset.json";
 
 const BUBBLES = Array.from({ length: 14 }, (_, i) => {
   const size = 40 + ((i * 37) % 120);
@@ -58,9 +58,11 @@ export function IdleOverlay({ userName, enabled = true }: { userName: string; en
         />
       ))}
       <div className="relative flex h-full flex-col items-center justify-center gap-6 px-6 text-center">
-        <div className="opacity-90">
-          <FlowSyncLogo />
-        </div>
+        <img
+          src={idleSpriteAsset.url}
+          alt="Idle mode illustration"
+          className="max-h-[45vh] w-auto max-w-full object-contain drop-shadow-2xl md:max-h-[55vh]"
+        />
         {waking ? (
           <>
             <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl">
