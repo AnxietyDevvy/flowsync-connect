@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { FlowSyncLogo } from "@/components/flowsync/Logos";
 import { useIdle } from "@/hooks/use-idle";
+import idleSpriteAsset from "@/assets/idle-sprite.png.asset.json";
 
 const BUBBLES = Array.from({ length: 14 }, (_, i) => {
   const size = 40 + ((i * 37) % 120);
