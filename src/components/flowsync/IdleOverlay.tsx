@@ -19,6 +19,12 @@ export function IdleOverlay({ userName, enabled = true }: { userName: string; en
   const [visible, setVisible] = useState(false);
   const [waking, setWaking] = useState(false);
 
+  // Warm the sprite in cache so it's ready the moment the overlay appears.
+  useEffect(() => {
+    const img = new Image();
+    img.src = idleSpriteAsset.url;
+  }, []);
+
   useEffect(() => {
     if (active) {
       setWaking(false);
@@ -61,7 +67,12 @@ export function IdleOverlay({ userName, enabled = true }: { userName: string; en
         <img
           src={idleSpriteAsset.url}
           alt="Idle mode illustration"
-          className="max-h-[45vh] w-auto max-w-full object-contain drop-shadow-2xl md:max-h-[55vh]"
+          width={900}
+          height={808}
+          loading="eager"
+          decoding="sync"
+          fetchPriority="high"
+          className="h-auto w-[min(70vw,26rem)] max-w-full object-contain drop-shadow-2xl md:w-[min(45vw,32rem)]"
         />
         {waking ? (
           <>
