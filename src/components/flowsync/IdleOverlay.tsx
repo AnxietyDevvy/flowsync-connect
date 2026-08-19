@@ -19,6 +19,12 @@ export function IdleOverlay({ userName, enabled = true }: { userName: string; en
   const [visible, setVisible] = useState(false);
   const [waking, setWaking] = useState(false);
 
+  // Warm the sprite in cache so it's ready the moment the overlay appears.
+  useEffect(() => {
+    const img = new Image();
+    img.src = idleSpriteAsset.url;
+  }, []);
+
   useEffect(() => {
     if (active) {
       setWaking(false);
