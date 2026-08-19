@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UnlockRouteImport } from './routes/unlock'
-import { Route as IdletestRouteImport } from './routes/idletest'
 import { Route as GatedRouteImport } from './routes/_gated'
 import { Route as GatedIndexRouteImport } from './routes/_gated.index'
 import { Route as GatedProductionRouteImport } from './routes/_gated.production'
@@ -22,11 +21,6 @@ import { Route as GatedProductionPrintIdRouteImport } from './routes/_gated.prod
 const UnlockRoute = UnlockRouteImport.update({
   id: '/unlock',
   path: '/unlock',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IdletestRoute = IdletestRouteImport.update({
-  id: '/idletest',
-  path: '/idletest',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GatedRoute = GatedRouteImport.update({
@@ -66,7 +60,6 @@ const GatedProductionPrintIdRoute = GatedProductionPrintIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof GatedIndexRoute
-  '/idletest': typeof IdletestRoute
   '/unlock': typeof UnlockRoute
   '/admin': typeof GatedAdminRoute
   '/dev': typeof GatedDevRoute
@@ -75,7 +68,6 @@ export interface FileRoutesByFullPath {
   '/production/print/$id': typeof GatedProductionPrintIdRoute
 }
 export interface FileRoutesByTo {
-  '/idletest': typeof IdletestRoute
   '/unlock': typeof UnlockRoute
   '/admin': typeof GatedAdminRoute
   '/dev': typeof GatedDevRoute
@@ -87,7 +79,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_gated': typeof GatedRouteWithChildren
-  '/idletest': typeof IdletestRoute
   '/unlock': typeof UnlockRoute
   '/_gated/admin': typeof GatedAdminRoute
   '/_gated/dev': typeof GatedDevRoute
@@ -100,7 +91,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/idletest'
     | '/unlock'
     | '/admin'
     | '/dev'
@@ -109,7 +99,6 @@ export interface FileRouteTypes {
     | '/production/print/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/idletest'
     | '/unlock'
     | '/admin'
     | '/dev'
@@ -120,7 +109,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_gated'
-    | '/idletest'
     | '/unlock'
     | '/_gated/admin'
     | '/_gated/dev'
@@ -132,7 +120,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   GatedRoute: typeof GatedRouteWithChildren
-  IdletestRoute: typeof IdletestRoute
   UnlockRoute: typeof UnlockRoute
 }
 
@@ -143,13 +130,6 @@ declare module '@tanstack/react-router' {
       path: '/unlock'
       fullPath: '/unlock'
       preLoaderRoute: typeof UnlockRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/idletest': {
-      id: '/idletest'
-      path: '/idletest'
-      fullPath: '/idletest'
-      preLoaderRoute: typeof IdletestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_gated': {
@@ -236,7 +216,6 @@ const GatedRouteWithChildren = GatedRoute._addFileChildren(GatedRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   GatedRoute: GatedRouteWithChildren,
-  IdletestRoute: IdletestRoute,
   UnlockRoute: UnlockRoute,
 }
 export const routeTree = rootRouteImport
